@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block header %}
+<script>
+    function selection() {
+        var ele = document.getElementsByName('category_rdo');
+        for (i = 0; i < ele.length; i++) {
+            if (ele[i].checked) {
+                var table = document.getElementsByTagName('table')[0];
+                var row = table.rows[i + 1];
+                var category_cell = row.cells[3];
+                var category = category_cell.innerHTML;
+                var destinationAcc_cell = row.cells[4];
+                var destinationAcc = destinationAcc_cell.innerHTML;
+
+                var category_ele = document.getElementById('__category');
+                category_ele.value = category;
+                var destinationAcc_ele = document.getElementById('__destinationAcc');
+                destinationAcc_ele.value = destinationAcc;
+            }
+        }
+        document.theForm.submit();
+    }
+</script>
+<h1>{% block title %}Category selection{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+<form method=post enctype=multipart/form-data>
+    <input list="category" name="Category">
+    <datalist id="category">
+        {% for value in category_list %}
+        <option value="{{value[0]}}"></option>
+        {% endfor %}
+    </datalist>
+
+    <input list="destinationAcc" name="Destination account">
+    <datalist id="destinationAcc">
+        {% for value in destinationAcc_list %}
+        <option value="{{value[0]}}"></option>
+        {% endfor %}
+    </datalist>
+    <input type=submit value="Select">
+</form>
+
+<button type="button" onclick="selection()">
+    Submit
+</button>
+{% for table in tables %}
+<h2>{{titles[loop.index]}}</h2>
+{{ table|safe }}
+{% endfor %}
+
+<form method="post" enctype="multipart/form-data" name="theForm">
+    <input type="hidden" id="__category" name="__category" />
+    <input type="hidden" id="__destinationAcc" name="__destinationAcc" />
+</form>
+
+{% endblock %}
