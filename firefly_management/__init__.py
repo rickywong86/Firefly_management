@@ -10,7 +10,8 @@ def create_app(test_config=None):
         SECRET_KEY='dev',
         DATABASE=os.path.join(app.instance_path, 'db.sqlite'),
         UPLOAD_FOLDER = app.instance_path,
-        ALLOWED_EXTENSIONS = {'txt','csv'}
+        ALLOWED_EXTENSIONS = {'txt','csv'},
+        TEMPLATE_AUTO_RELOAD = True
     )
 
     if test_config is None:
@@ -31,6 +32,9 @@ def create_app(test_config=None):
 
     from . import category
     app.register_blueprint(category.bp)
+
+    from . import transactions
+    app.register_blueprint(transactions.bp)
 
     from . import home
     app.register_blueprint(home.bp)

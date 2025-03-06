@@ -6,6 +6,12 @@
 
 {% block content %}
 <form method=post enctype=multipart/form-data>
+    <select name="sourceAcc">
+        <option value="Amex (BA)">Amex</option>
+        <option value="HSBC UK">HSBC UK</option>
+        <option value="Barclays">Barclays</option>
+        <option value="Barclays ISA">Barclays ISA</option>
+    </select>
     <input type=file name=file accept=".csv,.txt">
     <input type=submit value=Upload>
 </form>

@@ -1,23 +1,25 @@
 {% extends 'base.html' %}
 
 {% block header %}
-<h1>{% block title %}New category{% endblock %}</h1>
+<h1>{% block title %}Edit{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
 <a href="javascript:history.back()">Back to previous page</a>
-<form method="post">
-    <label for="key">Key</label>
-    <input name="key" id="key" value="{{ request.form['key'] }}" required>
+<form method="post" enctype="multipart/form-data">
+    <label for="desc">Description</label>
+    <input name="desc" id="desc" value="{{ request.form['desc'] or transaction['desc'] }}" required>
     <label for="category">Category</label>
-    <input list="category" name="category" value="{{ request.form['category'] }}" required>
+    <input list="category" name="category" value="{{ request.form['category'] or transaction['category'] }}">
     <datalist id="category">
         {% for value in category_list %}
         <option value="{{value[0]}}"></option>
         {% endfor %}
     </datalist>
-    <label for="destinationAcc">Destination account</label>
-    <input list="destinationAcc" name="destinationAcc" value="{{ request.form['destinationAcc'] }}" required>
+
+    <label for="destinationAcc">Destination Account</label>
+    <input list="destinationAcc" name="destinationAcc"
+        value="{{ request.form['destinationAcc'] or transaction['destinationAcc'] }}">
     <datalist id="destinationAcc">
         {% for value in destinationAcc_list %}
         <option value="{{value[0]}}"></option>

@@ -1,10 +1,13 @@
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for
+    Blueprint, flash, g, redirect, render_template, request, url_for, sessions
 )
 
 from werkzeug.exceptions import abort
 
 from firefly_management.db import get_db
+
+import pandas as pd
+from . import home
 
 bp = Blueprint('category', __name__)
 
@@ -44,8 +47,11 @@ def create():
             )
             db.commit()
             return redirect(url_for('category.index'))
+        
+    destinationAcc_list = pd.read_sql('SELECT DISTINCT destinationAcc FROM __category', get_db())
+    category_list = pd.read_sql('SELECT DISTINCT category FROM __category', get_db())
 
-    return render_template('category/create.html')
+    return render_template('category/create.html', destinationAcc_list = destinationAcc_list.values, category_list = category_list.values)
 
 def get_category(id):
     result = get_db().execute(
@@ -89,7 +95,10 @@ def update(id):
             db.commit()
             return redirect(url_for('category.index'))
 
-    return render_template('category/update.html', category=result)
+    destinationAcc_list = pd.read_sql('SELECT DISTINCT destinationAcc FROM __category', get_db())
+    category_list = pd.read_sql('SELECT DISTINCT category FROM __category', get_db())
+
+    return render_template('category/update.html', category=result, destinationAcc_list = destinationAcc_list.values, category_list = category_list.values)
 
 @bp.route('/category/<int:id>/delete', methods=('POST',))
 def delete(id):
@@ -98,3 +107,47 @@ def delete(id):
     db.execute('DELETE FROM __category WHERE id = ?', (id,))
     db.commit()
     return redirect(url_for('category.index'))
+
+
+@bp.route('/category/selection/<string:desc>/<int:index>', methods=['GET','POST'])
+def category_selection(desc,index):
+    if request.method == 'POST':
+        db = get_db()
+    
+        _category = request.form.get('__category')
+        _destinationAcc = request.form.get('__destinationAcc')
+
+        stmt = f'UPDATE __transactions SET category = "{_category}", destinationAcc = "{_destinationAcc}", score = "-" where id = "{index}"; '
+
+        db.execute(stmt)
+
+        db.commit()
+
+        return redirect(url_for("transactions.index"))
+    else:
+        
+        df_result = home.scoring(desc,5)
+        df_result['Action'] = f'<input type="radio" name="category_rdo" />'
+        _html = df_result.style.set_uuid('table_id').to_html(header='true', table_id="table", classes=['table','table-striped'], border=1, render_links=True, escape=False)
+        return render_template('category/category_selection.html', tables=[_html], titles = [''],  desc=desc, index=index)
+    
+@bp.route('/category/createAndAssign/<string:desc>/<int:index>', methods=['GET','POST'])
+def category_createAndAssign(desc,index):
+    if request.method == 'POST':
+        db = get_db()
+    
+        _category = request.form.get('category')
+        _destinationAcc = request.form.get('destinationAcc')
+
+        stmt = f'INSERT INTO __category (`key`, category, destinationAcc) VALUES ("{desc}","{_category}","{_destinationAcc}");'
+        db.execute(stmt)
+        db.commit()
+
+        stmt = f'UPDATE __transactions SET category = "{_category}", destinationAcc = "{_destinationAcc}", score = "-" where id = "{index}"; '
+        db.execute(stmt)
+        db.commit()
+
+        return redirect(url_for('transactions.index'))
+    destinationAcc_list = pd.read_sql('SELECT DISTINCT destinationAcc FROM __category', get_db())
+    category_list = pd.read_sql('SELECT DISTINCT category FROM __category', get_db())
+    return render_template('category/createAndAssign.html', desc=desc, destinationAcc_list = destinationAcc_list.values, category_list = category_list.values,)

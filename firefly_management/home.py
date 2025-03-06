@@ -57,13 +57,37 @@ def insertData(data, filename):
     db.execute(
         'INSERT into __transaction (transdate, desc, amount, category, sourceAcc, destinationAcc, filename, similarityScore)'
         ' VALUES (?,?,?,?,?,?,?,?)',
-        (data.Date,re.sub('\s+',' ',data.Memo),data.Amount,'','','',filename,0,)
+        (data.Date,re.sub('\s+',' ',data.Memo),data.Amount,'','','',session['key'],0,)
     )
     db.commit()
     return
 
-def modify_transaction(df):
-    return
+def modify_transaction(df, sourceAcc):
+    print(sourceAcc)
+    if sourceAcc == 'HSBC UK':
+        df.to_csv('tmp.csv', header=['transdate','desc','amount'], index=False)
+        df = pd.read_csv('tmp.csv')
+
+    if sourceAcc == 'Barclays' or sourceAcc =='Barclays ISA':
+        df = df.drop(columns=['Number','Account','Subcategory'])
+        df = df.rename(columns={'Date':'transdate','Amount':'amount','Memo':'desc'})
+
+    if sourceAcc == 'Amex':
+        # df['Description'] = df['Description'] + ' (' + df['Card Member'] + ')'
+        df['Amount'] = df['Amount'] * -1
+        df = df.drop(columns=['Account #', 'Card Member'])
+        df = df.rename(columns={'Date':'transdate','Amount':'amount','Description':'desc'})
+
+    for index, row in df.iterrows():
+        df_result = scoring(row['desc'])
+        first_row = df_result.iloc[0]
+        df.loc[index, 'desc'] = re.sub('\s+',' ',row['desc'])
+        df.loc[index, 'destinationAcc'] = first_row['destinationAcc']
+        df.loc[index, 'category'] = first_row['category']
+        df.loc[index, 'score'] = first_row['score']
+        df.loc[index, 'session_key'] = session['key']
+
+    return df
 
 
 def deleteData(filename):
@@ -79,6 +103,8 @@ def scoring(_checkvalue, limit=5, ascending=False):
     df_cat = pd.read_sql('SELECT id, key, category, destinationAcc FROM __category', get_db())                
     df_cat['score'] = ''
     keys = df_cat['key'].tolist()
+    # v = re.sub('[^A-Za-z0-9]+', ' ', _checkvalue)
+    _checkvalue = re.sub(r'\s+', ' ', _checkvalue)
     scores = process.extract(_checkvalue,keys,scorer=fuzz.partial_ratio,limit=limit)
     for score in scores:
         row = df_cat.loc[df_cat['key'] == score[0]]
@@ -91,6 +117,9 @@ def scoring(_checkvalue, limit=5, ascending=False):
 
 @bp.route('/', methods=['GET','POST'])
 def index():
+    session.clear()
+    session['key'] = uuid.uuid4().hex[:6].upper()
+
     if request.method == 'POST':
         # check if the post request has the file part
         if 'file' not in request.files:
@@ -104,55 +133,20 @@ def index():
             return redirect(request.url)
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            # save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-            # file.save(save_path)
-            
-            session['__session_id'] = uuid.uuid4()
-            
+           
+            sourceAcc = request.form.get('sourceAcc')
+
             df = pd.read_csv(file)
-            for index, row in df.iterrows():                
-                insert_transaction(row)
+            df = modify_transaction(df, sourceAcc)
 
-            sql_stmt = f'SELECT id, created, transdate, desc, amount, category, sourceAcc, destinationAcc, filename, similarityScore FROM __transaction WHERE filename = "{filename}"'
-            df_transaction = pd.read_sql(sql_stmt,
-                                         get_db()
-                                         )                   
+            df['sourceAcc'] = sourceAcc
 
-            for index, row in df_transaction.iterrows():
-                df_result = scoring(row['desc'])
-                first_row = df_result.iloc[0]
-                df_transaction.loc[index, 'destinationAcc'] = first_row['destinationAcc']
-                df_transaction.loc[index, 'category'] = first_row['category']
-                df_transaction.loc[index, 'similarityScore'] = first_row['score']
-                df_transaction.loc[index, 'key'] = first_row['key']
-                df_transaction.loc[index, 'action'] = f'<a target="_blank" href="category_selection/{row.desc}/{index}">Click</a>'
+            df.to_sql(f'__transactions', get_db(), if_exists='append', index=False)
 
-            print(df_transaction.to_sql("__transaction", get_db()))
-
-            _html = df_transaction.to_html(header='true', table_id="table", classes=['table','table-striped'], border=0, render_links=True, escape=False)
-            # build data from file
-            # readfile(save_path, filename)
-
-            return render_template('home/index.html', tables=[_html], titles = [''])
+            return redirect(url_for("transactions.index"))
         else:
             flash('File extension is not allowed.')
             return redirect(request.url)
     
     return render_template('home/index.html')
 
-
-@bp.route('/category_selection/<string:desc>/<int:index>', methods=['GET','POST'])
-def category_selection(desc,index):
-    if request.method == 'POST':
-        print('To be define post action.')
-        print(request.form.get('__category'))
-    else:
-        destinationAcc_list = pd.read_sql('SELECT DISTINCT destinationAcc FROM __category', get_db())
-        category_list = pd.read_sql('SELECT DISTINCT category FROM __category', get_db())
-        df_result = scoring(desc,300)
-        df_result['Action'] = f'<input type="radio" name="category_rdo" />'
-        # df_result['Action'] = f'<input type="submit" value="Select" />'
-        _html = df_result.style.set_uuid('table_id').to_html(header='true', table_id="table", classes=['table','table-striped'], border=0, render_links=True, escape=False)
-        return render_template('home/category_selection.html', tables=[_html], titles = [''], destinationAcc_list = destinationAcc_list.values, category_list = category_list.values)
-
-    return render_template('home/category_selection.html')

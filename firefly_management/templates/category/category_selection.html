@@ -26,7 +26,7 @@
 {% endblock %}
 
 {% block content %}
-<form method=post enctype=multipart/form-data>
+<!-- <form method=post enctype=multipart/form-data>
     <input list="category" name="Category">
     <datalist id="category">
         {% for value in category_list %}
@@ -41,10 +41,12 @@
         {% endfor %}
     </datalist>
     <input type=submit value="Select">
-</form>
+</form> -->
+<a href="javascript:history.back()">Back to previous page</a>
+<a href="{{url_for('category.category_createAndAssign', desc=desc, index=index)}}">Create new </a>
 
 <button type="button" onclick="selection()">
-    Submit
+    Select
 </button>
 {% for table in tables %}
 <h2>{{titles[loop.index]}}</h2>

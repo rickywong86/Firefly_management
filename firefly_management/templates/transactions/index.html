@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block header %}
+<script>
+    $(document).ready(
+        function () {
+            $('#table tbody tr').each((i, tr) => {
+                console.log($(tr.cells[7]).text().trim());
+                var score = Number(tr.cells[7].innerHTML);
+                if (score < 80) {
+                    $(tr).addClass('alert-row');
+                }
+            });
+        }
+    );
+</script>
+
+<h1>{% block title %}Transactions{% endblock %}</h1>
+{% endblock %}
+
+{% block content %}
+<a href="{{url_for('home.index')}}">Restart</a>
+<a href="{{url_for('transactions.download')}}">Export csv</a>
+<a href="{{url_for('transactions.index')}}">Refresh</a>
+{% for table in tables %}
+<h2>{{titles[loop.index]}}</h2>
+{{ table|safe }}
+{% endfor %}
+
+{% endblock %}
