@@ -1,61 +1,93 @@
 {% extends 'base.html' %}
 
-{% block header %}
-<script>
-    function selection() {
-        var ele = document.getElementsByName('category_rdo');
-        for (i = 0; i < ele.length; i++) {
-            if (ele[i].checked) {
-                var table = document.getElementsByTagName('table')[0];
-                var row = table.rows[i + 1];
-                var category_cell = row.cells[3];
-                var category = category_cell.innerHTML;
-                var destinationAcc_cell = row.cells[4];
-                var destinationAcc = destinationAcc_cell.innerHTML;
+{% block custom_script %}
+<style>
+    .selected {
+        background-color: lightgray;
+    }
 
-                var category_ele = document.getElementById('__category');
-                category_ele.value = category;
-                var destinationAcc_ele = document.getElementById('__destinationAcc');
-                destinationAcc_ele.value = destinationAcc;
-            }
-        }
+    table tbody tr:hover {
+        background-color: lightcyan;
+        cursor: pointer;
+    }
+</style>
+<script>
+    function save_onclick() {
+        var _ele = $('.selected').children();
+        $('#__category').val(_ele[1].innerHTML);
+        $('#__destinationAcc').val(_ele[2].innerHTML);
+
         document.theForm.submit();
     }
+
+    function select(d) {
+        $(this).prop("disabled", true)
+    }
+
+    $(document).on('click', 'tbody tr', function () {
+        $('.selected').removeClass('selected');
+        $(this).addClass('selected');
+        var _ele = $('.selected').children();
+        $('#category_val').html(_ele[1].innerHTML);
+        $('#destinationAcc_val').html(_ele[2].innerHTML);
+
+        $('#exampleModal').modal('show');
+    }
+    );
+
+    $(document).ready(function () {
+        $('th').addClass('text-center');
+    })
+
 </script>
-<h1>{% block title %}Category selection{% endblock %}</h1>
+
+{% endblock %}
+
+{% block header %}
+<h2>{% block title %}Category selection{% endblock %}</h2>
 {% endblock %}
 
 {% block content %}
-<!-- <form method=post enctype=multipart/form-data>
-    <input list="category" name="Category">
-    <datalist id="category">
-        {% for value in category_list %}
-        <option value="{{value[0]}}"></option>
-        {% endfor %}
-    </datalist>
+<div>
+    <a href="javascript:history.back()" class="btn btn-secondary">Back to previous page</a>
+    <a href="{{url_for('category.category_createAndAssign', desc=desc, index=index)}}" class="btn btn-primary">Create
+        new
+    </a>
+</div>
 
-    <input list="destinationAcc" name="Destination account">
-    <datalist id="destinationAcc">
-        {% for value in destinationAcc_list %}
-        <option value="{{value[0]}}"></option>
-        {% endfor %}
-    </datalist>
-    <input type=submit value="Select">
-</form> -->
-<a href="javascript:history.back()">Back to previous page</a>
-<a href="{{url_for('category.category_createAndAssign', desc=desc, index=index)}}">Create new </a>
 
-<button type="button" onclick="selection()">
-    Select
-</button>
 {% for table in tables %}
 <h2>{{titles[loop.index]}}</h2>
-{{ table|safe }}
+<div class="text-center">
+    {{ table|safe }}
+</div>
 {% endfor %}
 
 <form method="post" enctype="multipart/form-data" name="theForm">
     <input type="hidden" id="__category" name="__category" />
     <input type="hidden" id="__destinationAcc" name="__destinationAcc" />
 </form>
+
+<div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Confirmation</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                Update category to <b id="category_val"></b> and destination account to <b id="destinationAcc_val"></b>.
+                Confirm?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="save_onclick()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

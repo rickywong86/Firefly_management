@@ -5,10 +5,9 @@
     $(document).ready(
         function () {
             $('#table tbody tr').each((i, tr) => {
-                console.log($(tr.cells[7]).text().trim());
                 var score = Number(tr.cells[7].innerHTML);
                 if (score < 80) {
-                    $(tr).addClass('alert-row');
+                    $(tr).addClass('table-warning');
                 }
             });
         }
@@ -19,9 +18,9 @@
 {% endblock %}
 
 {% block content %}
-<a href="{{url_for('home.index')}}">Restart</a>
-<a href="{{url_for('transactions.download')}}">Export csv</a>
-<a href="{{url_for('transactions.index')}}">Refresh</a>
+<a href="{{url_for('home.index')}}" class="btn btn-danger">Restart</a>
+<a href="{{url_for('transactions.download')}}" class="btn btn-success">Export csv</a>
+<a href="{{url_for('transactions.index')}}" class="btn btn-secondary">Refresh</a>
 {% for table in tables %}
 <h2>{{titles[loop.index]}}</h2>
 {{ table|safe }}

@@ -13,11 +13,37 @@ bp = Blueprint('category', __name__)
 
 @bp.route('/category')
 def index():
-    db = get_db()
-    categories = db.execute(
-        'SELECT id, key, category, destinationAcc FROM __category'
-    ).fetchall()
-    return render_template('category/index.html', categories = categories)
+    # db = get_db()
+    # categories = db.execute(
+    #     'SELECT id, key, category, destinationAcc FROM __category'
+    # ).fetchall()
+    df = pd.read_sql('SELECT id, key, category, destinationAcc FROM __category', get_db())
+
+    for index, row in df.iterrows():
+        update_link = url_for('category.update',id=row['id'])
+        _id = row['id']
+        _desc = row['key']
+        df.loc[index, 'Action'] = (
+            f'<div class="btn-group col-sm-12 text-center" role="group">'
+            f'<a href="{update_link}" class="btn btn-primary">Edit</a> '
+            f"<button class='btn btn-danger' onclick='delete_modal_show({_id},\"{_desc}\")'>Delete</button>"
+            f'</div>'
+        )
+    
+    df.rename(columns={
+                       'key':'Description',
+                       'destinationAcc':'Destination account',
+                       'category':'Category'}, inplace=True)
+    
+    _html = df.to_html(header='true', 
+                       columns=[
+                                'Description',
+                                'Destination account',
+                                'Category',
+                                'Action',
+                       ],
+                       table_id="table", classes=['table','table-sm'], border=False, render_links=True, escape=False, index=False)
+    return render_template('category/index.html', table=_html)
 
 @bp.route('/category/create', methods=('GET', 'POST'))
 def create():
@@ -100,8 +126,10 @@ def update(id):
 
     return render_template('category/update.html', category=result, destinationAcc_list = destinationAcc_list.values, category_list = category_list.values)
 
-@bp.route('/category/<int:id>/delete', methods=('POST',))
-def delete(id):
+@bp.route('/category/delete', methods=('POST',))
+def delete():
+    print('run')
+    id = request.form['hidden_id']
     get_category(id)
     db = get_db()
     db.execute('DELETE FROM __category WHERE id = ?', (id,))
@@ -127,8 +155,19 @@ def category_selection(desc,index):
     else:
         
         df_result = home.scoring(desc,5)
-        df_result['Action'] = f'<input type="radio" name="category_rdo" />'
-        _html = df_result.style.set_uuid('table_id').to_html(header='true', table_id="table", classes=['table','table-striped'], border=1, render_links=True, escape=False)
+        df_result['Action'] = f'<input type="radio" name="category_rdo" /> <button onClick="select(this)"> Select </button>'
+
+        df_result.rename(columns={'key':'Description',
+                       'category':'Category',
+                       'destinationAcc':'Destination account',
+                       'score':'Score'}, inplace=True)
+        
+        _html = df_result.to_html(header='true', columns=[
+            'Description',
+            'Category',
+            'Destination account',
+            'Score'
+            ],table_id="table", classes=['table','table-sm'], border=False, render_links=True, escape=False, index=False)
         return render_template('category/category_selection.html', tables=[_html], titles = [''],  desc=desc, index=index)
     
 @bp.route('/category/createAndAssign/<string:desc>/<int:index>', methods=['GET','POST'])

@@ -27,8 +27,10 @@ def index():
         update_link = url_for('transactions.update',id=row['id'])
         select_link = url_for('category.category_selection',desc=row['desc'],index=row['id'])
         df.loc[index, 'Action'] = (
-            f'<a href="{update_link}">Edit</a> '
-            f'<a href="{select_link}">Selection</a>'
+            f'<div class="btn-group col-sm-12 text-center" role="group">'
+            f'<a href="{update_link}" class="btn btn-primary">Edit</a> '
+            f'<a href="{select_link}" class="btn btn-info">Selection</a>'
+            f'</div>'
         )
 
     df.rename(columns={'sourceAcc':'Source account',
@@ -51,10 +53,10 @@ def index():
                                 'Date',
                                 'Amount',
                                 'Category',
-                                'Score',
+                                'Score', 
                                 'Action',
                        ],
-                       table_id="table", classes=['table','table-striped'], border=1, render_links=True, escape=False, index=False)
+                       table_id="table", classes=['table','table-sm'], border=False, render_links=True, escape=False, index=False)
     
     return render_template('transactions/index.html', tables=[_html], titles = [''])
 

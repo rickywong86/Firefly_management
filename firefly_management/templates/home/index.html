@@ -1,19 +1,31 @@
 {% extends 'base.html' %}
 
+{% block head %}
+{% endblock %}
 {% block header %}
-<h1>{% block title %}Home - Upload new file{% endblock %}</h1>
+{% block title %}<h2>Upload new file</h2>{% endblock %}
 {% endblock %}
 
 {% block content %}
-<form method=post enctype=multipart/form-data>
-    <select name="sourceAcc">
-        <option value="Amex (BA)">Amex</option>
-        <option value="HSBC UK">HSBC UK</option>
-        <option value="Barclays">Barclays</option>
-        <option value="Barclays ISA">Barclays ISA</option>
-    </select>
-    <input type=file name=file accept=".csv,.txt">
-    <input type=submit value=Upload>
+<form method="post" enctype="multipart/form-data">
+    <div class="input-group mb-3">
+        <label for="sourceAcc" class="input-group-text">Source account:</label>
+        <select name="sourceAcc" class="form-select">
+            <option value="Amex (BA)">Amex</option>
+            <option value="HSBC UK">HSBC UK</option>
+            <option value="Barclays">Barclays</option>
+            <option value="Barclays ISA">Barclays ISA</option>
+        </select>
+    </div>
+    <div class="input-group mb-3">
+        <div class="custom-file">
+            <input type="file" name='file' accept=".csv,.txt" class="custom-file-input" id="file">
+            <label class="custom-file-label" for="file">Choose file</label>
+        </div>
+    </div>
+    <div class="input-group mb-3">
+        <input class="btn btn-outline-secondary" type="submit" value="Upload">
+    </div>
 </form>
 
 {% for table in tables %}
@@ -21,4 +33,15 @@
 {{ table|safe }}
 {% endfor %}
 
+{% endblock %}
+
+{% block custom_script %}
+<script>
+    $(document).on('change', '#file', function () {
+        //get the file name
+        var fileName = $(this).val();
+        //replace the "Choose a file" label
+        $(this).next('.custom-file-label').html(fileName);
+    })
+</script>
 {% endblock %}

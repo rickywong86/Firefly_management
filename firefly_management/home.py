@@ -72,7 +72,7 @@ def modify_transaction(df, sourceAcc):
         df = df.drop(columns=['Number','Account','Subcategory'])
         df = df.rename(columns={'Date':'transdate','Amount':'amount','Memo':'desc'})
 
-    if sourceAcc == 'Amex':
+    if sourceAcc == 'Amex (BA)':
         # df['Description'] = df['Description'] + ' (' + df['Card Member'] + ')'
         df['Amount'] = df['Amount'] * -1
         df = df.drop(columns=['Account #', 'Card Member'])

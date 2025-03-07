@@ -2,23 +2,60 @@
 
 {% block header %}
 <h1>{% block title %}Category{% endblock %}</h1>
-<a class="action" href="{{ url_for('category.create') }}">New</a>
+
 {% endblock %}
 
 {% block content %}
-{% for category in categories %}
-<article class="post">
-    <header>
-        <div>
-            <h1>{{ category['key'] }}</h1>
-            <div class="about">{{ category['category'] }}</div>
+
+<section>
+    <a href="javascript:history.back()" class="btn btn-secondary">Back to previous page</a>
+    <a class="btn btn-primary" href="{{ url_for('category.create') }}">New</a>
+</section>
+
+<div class="text-left">
+    {{table|safe}}
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Delete</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                Delete categoty with Description <b id="desc_text"></b>.
+                Confirm?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="delete_action()">Delete</button>
+            </div>
         </div>
-        <a class="action" href="{{ url_for('category.update', id=category['id']) }}">Edit</a>
-    </header>
-    <p class="body">{{ category['destinationAcc'] }}</p>
-</article>
-{% if not loop.last %}
-<hr>
-{% endif %}
-{% endfor %}
+    </div>
+</div>
+<form method="post" action="{{url_for('category.delete')}}" enctype="multipart/form-data" name="theForm">
+    <input type="hidden" id="hidden_id" name="hidden_id" />
+</form>
+{% endblock %}
+
+{% block custom_script %}
+<script>
+    $(document).ready(function () {
+        $('th').addClass('text-left');
+    })
+
+    function delete_modal_show(id, desc) {
+        $('#desc_text').html(desc);
+        $('#hidden_id').val(id);
+        $('#deleteModal').modal('toggle');
+    }
+
+    function delete_action() {
+        document.theForm.submit();
+    }
+</script>
 {% endblock %}
