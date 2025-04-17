@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+
+{% block header %}
+<h1>{% block title %}Asset{% endblock %}</h1>
+
+{% endblock %}
+
+{% block content %}
+<section>
+    {% if message is not none %}
+    <div class="alert alert-success" role="alert">
+        {{ message }}
+    </div>
+    {% endif %}
+</section>
+<section class="text-left">
+    <!-- <table id="table"></table> -->
+    <table id="table" class="display" cellspacing="0">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Has header</th>
+            </tr>
+        </thead>
+        <tfoot>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Has header</th>
+            </tr>
+        </tfoot>
+    </table>
+</section>
+
+<section class="text-left">
+    <!-- <table id="table"></table> -->
+    <table id="line" class="display" cellspacing="0">
+        <thead>
+            <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Drop</th>
+                <th>Format</th>
+                <th>Custom</th>
+                <th>Custom formula</th>
+            </tr>
+        </thead>
+        <tfoot>
+            <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Drop</th>
+                <th>Format</th>
+                <th>Custom</th>
+                <th>Custom formula</th>
+            </tr>
+        </tfoot>
+    </table>
+</section>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Delete</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                Delete selected account.
+                Confirm?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="delete_action()">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+<form method="post" action="{{url_for('asset.assetsdata_delete')}}" enctype="multipart/form-data" name="theForm">
+    <input type="hidden" id="hidden_id" name="hidden_id" />
+</form>
+
+{% endblock %}
+
+{% block custom_script %}
+<script>
+    var _table;
+    var _line;
+    var _id = 1;
+
+    $(document).ready(function () {
+        _table = $('#table').DataTable({
+            'ajax': {
+                "type": "GET",
+                "url": '/api/asset/assetsdata',
+            },
+            columnDefs: [
+                {
+                    target: 0,
+                    visible: false,
+                    searchable: false
+                },
+                {
+                    target: 2,
+                    "className": "text-center",
+                }
+            ],
+            "columns": [
+                { "data": "id" },
+                { "data": "account_name" },
+                {
+                    "data": "has_header",
+                    "render": function (data) {
+                        let _ischecked = '';
+                        if (data == true) {
+                            _ischecked = 'checked';
+                        }
+                        return `<div class="custom-control custom-switch">
+                            <input class="custom-control-input" type="checkbox" ${_ischecked}>
+                            <label class="custom-control-label"></label>
+                        </div>`
+                    },
+                }
+            ],
+            layout: {
+                topStart: {
+                    buttons: [
+                        {
+                            text: 'Create',
+                            action: function () {
+                                window.location.href = '{{ url_for("asset.create") }}';
+                            }
+                        },
+                        {
+                            text: 'Edit',
+                            action: function () {
+                                let _d = _table.rows({ selected: true }).data();
+                                let _id = _d[0].id;
+                                let _url = `{{url_for('asset.update',id=0)}}`.replace('0', _id);
+                                window.location.href = _url;
+                            },
+                            enabled: false,
+                        },
+                        {
+                            text: 'Delete',
+                            action: function (e) {
+                                e.stopPropagation();
+                                let _d = _table.rows({ selected: true }).data();
+                                let _id = _d[0].id;
+                                $('#hidden_id').val(_id);
+                                $('#deleteModal').modal('toggle');
+                            },
+                            enabled: false,
+                        }
+                    ]
+                }
+            },
+            select: true,
+        })
+
+        _line = $('#line').DataTable({
+            'ajax': {
+                "type": "GET",
+                "url": '/api/asset/assetcolumnsmap/' + _id,
+            },
+            columnDefs: [
+                {
+                    target: 2,
+                    "className": "text-center",
+                },
+                {
+                    target: 4,
+                    "className": "text-center",
+                }
+            ],
+            "columns": [
+                { "data": "src_column_name" },
+                { "data": "des_column_name" },
+                {
+                    "data": "is_drop",
+                    "render": function (data) {
+                        let _ischecked = '';
+                        if (data == true) {
+                            _ischecked = 'checked';
+                        }
+                        return `<div class="custom-control custom-switch">
+                            <input class="custom-control-input" type="checkbox" ${_ischecked}>
+                            <label class="custom-control-label"></label>
+                        </div>`
+                    }
+                },
+                { "data": "format" },
+                {
+                    "data": "custom", "render": function (data) {
+                        let _ischecked = '';
+                        if (data == true) {
+                            _ischecked = 'checked';
+                        }
+                        return `<div class="custom-control custom-switch">
+                            <input class="custom-control-input" type="checkbox" ${_ischecked}>
+                            <label class="custom-control-label"></label>
+                        </div>`
+                    }
+                },
+                { "data": "custom_formula" },
+            ],
+            select: true,
+            layout: {
+                topStart: {
+                    buttons: [
+                        {
+                            text: 'Create',
+                            action: function () {
+                                let _d = _table.rows({ selected: true }).data();
+                                let _id = _d[0].id;
+                                let _url = `{{ url_for("asset.assetcolumnsmap_create", account_id='var_1') }}`.replace('var_1', _id);
+                                window.location.href = _url;
+                            },
+                            enabled: false,
+                        },
+                        {
+                            text: 'Edit',
+                            action: function () {
+                                let _d = _table.rows({ selected: true }).data();
+                                let _id = _d[0].id;
+                                let _d_map = _line.rows({ selected: true }).data();
+                                let _map_id = _d_map[0].id;
+
+                                let _url = `{{url_for('asset.assetcolumnsmap_update',account_id='var_1',id='var_2')}}`.replace('var_1', _id).replace('var_2', _map_id);
+                                window.location.href = _url;
+                            },
+                            enabled: false,
+                        },
+                        {
+                            text: 'Delete',
+                            action: function (e) {
+                                e.stopPropagation();
+                                let _d1 = _table.rows({ selected: true }).data();
+                                let _account_id = _d1[0].id;
+                                let _d2 = _line.rows({ selected: true }).data();
+                                let _id = _d2[0].id;
+                                $.confirm({
+                                    title: 'Confirm!',
+                                    content: 'Simple confirm!',
+                                    buttons: {
+                                        confirm: function () {
+                                            let _url = `{{url_for('asset.assetcolumnsmap', account_id='var_1', id='var_2')}}`.replace('var_1', _account_id).replace('var_2', _id);
+                                            let _payload = {
+                                                'id': _id,
+                                            }
+                                            $.ajax({
+                                                url: _url,
+                                                type: 'DELETE',
+                                                statusCode: {
+                                                    201: function (result) {
+                                                        $.alert(result.message);
+                                                        $('#line').DataTable().ajax.reload();
+                                                    }
+                                                }
+                                            });
+                                        },
+                                        cancel: function () {
+                                            $.alert('Canceled!');
+                                        },
+                                        somethingElse: {
+                                            text: 'Something else',
+                                            btnClass: 'btn-blue',
+                                            keys: ['enter', 'shift'],
+                                            action: function () {
+                                                $.alert('Something else?');
+                                            }
+                                        }
+                                    }
+                                });
+                            },
+                            enabled: false,
+                        }
+                    ]
+                }
+            }
+        })
+
+
+        // $('th').addClass('text-left');
+        // var json = `{{ headers | safe }}`
+        // console.log(json);
+        // $('#table').DataTable({
+        //     // 'data': JSON.parse('{{ headers | safe }}'),
+        //     // "columns": [
+        //     //     { "data": "Description" },
+        //     //     { "data": "Action" }
+        //     // ]
+        //     "data": JSON.parse(json),
+        //     "columns": [
+        //         { "data": "Description" },
+        //         { "data": "Action" }
+        //     ]
+        // });
+        // $('#table_map').DataTable();
+
+        _table.on('select deselect', function () {
+            var selectedRows = _table.rows({ selected: true }).count();
+
+            _table.button(1).enable(selectedRows === 1);
+            _table.button(2).enable(selectedRows === 1);
+            _line.button(0).enable(selectedRows === 1);
+        });
+
+        _line.on('select deselect', function () {
+            var is_table_selected = _table.rows({ selected: true }).count() > 0;
+            var selectedRows = _line.rows({ selected: true }).count();
+            _line.button(1).enable(is_table_selected && selectedRows === 1);
+            _line.button(2).enable(is_table_selected && selectedRows === 1);
+        })
+    })
+
+    function delete_modal_show(id, desc) {
+        $('#desc_text').html(desc);
+        $('#hidden_id').val(id);
+        $('#deleteModal').modal('toggle');
+    }
+
+    function delete_action() {
+        document.theForm.submit();
+    }
+
+    $(document).on('click', '#table tr', function () {
+        let data = _table.row(this).data();
+        _id = data.id;
+        $('#line').DataTable().ajax.url('/api/asset/assetcolumnsmap/' + _id).load();
+    })
+</script>
+{% endblock %}

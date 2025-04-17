@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block header %}
+<h1>{% block title %}Asset map update{% endblock %}</h1>
+
+{% endblock %}
+
+{% block content %}
+<section>
+    <a href="javascript:history.back()" class="btn btn-secondary">Back to previous page</a>
+</section>
+<form method="post">
+    {{ form.csrf_token }}
+    <div class="form-group">
+        {{ form.src_column_name.label (class="form-label")}}
+        {{ form.src_column_name(size=20, class="form-control")}}
+    </div>
+    {% if form.src_column_name.errors %}
+    <ul class="errors">
+        {% for error in form.src_column_name.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <div class="form-group">
+        {{ form.des_column_name.label (class="form-label")}}
+        {{ form.des_column_name(size=20, class="form-control")}}
+    </div>
+    {% if form.des_column_name.errors %}
+    <ul class="errors">
+        {% for error in form.des_column_name.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <div class="custom-control custom-switch">
+        {{ form.is_drop(class="custom-control-input") }} {{ form.is_drop.label(class="custom-control-label") }}
+    </div>
+    {% if form.is_drop.errors %}
+    <ul class="errors">
+        {% for error in form.is_drop.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <div class="form-group">
+        {{ form.format.label (class="form-label")}}
+        {{ form.format(size=20, class="form-control")}}
+    </div>
+    {% if form.format.errors %}
+    <ul class="errors">
+        {% for error in form.format.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <div class="custom-control custom-switch">
+        {{ form.custom(class="custom-control-input") }} {{ form.custom.label(class="custom-control-label") }}
+    </div>
+    {% if form.custom.errors %}
+    <ul class="errors">
+        {% for error in form.custom.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <div class="form-group">
+        {{ form.custom_formula.label (class="form-label")}}
+        {{ form.custom_formula(size=20, class="form-control")}}
+    </div>
+    {% if form.custom_formula.errors %}
+    <ul class="errors">
+        {% for error in form.custom_formula.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+
+    <div class="form-group">
+        <input class="btn btn-primary" type="submit" value="Save">
+    </div>
+</form>
+{% endblock %}

@@ -10,12 +10,25 @@
     {% block styles %}
     <!-- Bootstrap CSS -->
     {{ bootstrap.load_css() }}
+    <link rel="stylesheet" href="//cdn.datatables.net/2.2.2/css/dataTables.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.2.2/css/buttons.dataTables.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/select/3.0.0/css/select.dataTables.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.css">
+    <!-- Ref: https://craftpip.github.io/jquery-confirm/ -->
     {% endblock %}
     <title>{% block title %}{% endblock %} - Flaskr</title>
     {% block script %}
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
     {{ bootstrap.load_js() }}
+    <script src="//cdn.datatables.net/2.2.2/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/3.2.2/js/dataTables.buttons.js"></script>
+    <script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.dataTables.js">
+    </script>
+    <script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/3.2.2/js/buttons.print.min.js"></script>
+    <script src="https://cdn.datatables.net/select/3.0.0/js/dataTables.select.js"></script>
+    <script src="https://cdn.datatables.net/select/3.0.0/js/select.dataTables.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.js"></script>
     {% endblock %}
     {% block custom_script %}
     {% endblock %}
@@ -30,6 +43,9 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link active" href="{{ url_for('asset.index') }}">Account setting</a>
+                </li>
                 <li class="nav-item">
                     <a class="nav-link active" href="{{ url_for('category.index') }}">Category setting</a>
                 </li>

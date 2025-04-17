@@ -78,6 +78,15 @@ def modify_transaction(df, sourceAcc):
         df = df.drop(columns=['Account #', 'Card Member'])
         df = df.rename(columns={'Date':'transdate','Amount':'amount','Description':'desc'})
 
+    if sourceAcc == "Barclays (Avois)":
+        df.to_csv('tmp.csv', header=['transdate','desc','card','owner','type','credit','debit'], index=False)
+        df = pd.read_csv('tmp.csv')
+        df['transdate'] = pd.to_datetime(df['transdate'], format='%d %b %y')
+        df['transdate'] = df['transdate'].dt.strftime('%d/%m/%Y')
+        df = df.fillna(0)
+        df['amount'] = (df['debit'] + df['credit']) * -1
+        df = df.drop(columns=['card','owner','type','credit','debit'])
+
     for index, row in df.iterrows():
         df_result = scoring(row['desc'])
         first_row = df_result.iloc[0]

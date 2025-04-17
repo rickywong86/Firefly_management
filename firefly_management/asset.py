@@ -1,5 +1,5 @@
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, sessions
+    Blueprint, flash, g, redirect, render_template, request, url_for, sessions, session
 )
 
 from werkzeug.exceptions import abort
@@ -7,91 +7,310 @@ from werkzeug.exceptions import abort
 from firefly_management.db import get_db
 
 import pandas as pd
-from . import home
 import json
 import requests
 from io import StringIO
 
+from .forms import AccountColumnsMapForm
+
 bp = Blueprint('asset', __name__)
 
-@bp.route('/api/asset/assetsdata')
+@bp.route('/api/asset/assetsdata', methods=['GET','POST','PUT','DELETE'])
 def assetsdata():
-    df = pd.read_sql('SELECT * FROM _sourceAccount', get_db())
-    _json = df.to_json(orient='records')
-    _json_obj = json.loads(_json)
-    return {'data': _json_obj}
+     match request.method: 
+        case 'GET':
+            _id = request.args.get('id', None)
+            sql_stmt = ''
+            if _id is None:
+                sql_stmt = 'SELECT * FROM accounts'
+            else:
+                sql_stmt = f'SELECT * FROM accounts a where a.id = {_id}'
+            df = pd.read_sql(sql_stmt, get_db())
+            _json = df.to_json(orient='records')
+            _json_obj = json.loads(_json)
+            return {'data': _json_obj}, 200
+        case 'POST':
+            _account_name = request.form['account_name']
+            _has_header = request.form['has_header']
+            sql_stmt = f'INSERT INTO accounts (account_name, has_header) VALUES ({_account_name},{_has_header});'
 
-@bp.route('/api/asset/assetcolumnsmap/<int:id>')
-def assetcolumnsmap(id):
-    print(f'get data {id}')
-    df = pd.read_sql(f'SELECT * FROM _sourceAccountCsvMapping m where m._sourceAccount_id = {id}', get_db())
-    _json = df.to_json(orient='records')
-    _json_obj = json.loads(_json)
-    return {'data': _json_obj}
+            db = get_db()
 
+            db.execute(sql_stmt)
+            db.commit()
+            content = {'message':f'Insert record (account_name:{_account_name},has_header:{_has_header})'}
+            return content, 201
+        case 'PUT':
+            _id = request.args.get('id','')
+            if _id == '':
+                return {'message':'Query parameter (ID) must be specified.'}, 400
+            
+            select_stmt = f'SELECT * FROM accounts where id = {_id}'
+            df = pd.read_sql(select_stmt, get_db())
+            if df.empty:
+                return {'message':f'Provided ID {_id} not exists.'}, 400
+            
+            _account_name = request.form['account_name']
+            _has_header = request.form['has_header']
+            sql_stmt = f'UPDATE accounts SET account_name = {_account_name}, has_header={_has_header} where id = {_id};'
+            db = get_db()
+            db.execute(sql_stmt)
+            db.commit()
+            content = {'message':f'Update record (account_name:{_account_name},has_header:{_has_header}, id: {_id})'}
+            return content, 201
+        case 'DELETE':
+            _id = request.args.get('id','')
+            if _id == '':
+                return {'message':'Form data (ID) must be specified.'}, 400
+            else:
+                pass
+            
+            select_stmt = f'SELECT * FROM accounts where id = {_id}'
+            df = pd.read_sql(select_stmt, get_db())
+            if df.empty:
+                return {'message':'No content'}, 400
+            sql_stmt = f'DELETE FROM accounts where id = {_id};'
+            db = get_db()
+            db.execute(sql_stmt)
+            db.commit()
+            content = {'message':f'Delete record (account_name:{df.account_name},has_header:{df.has_header}, id: {_id})'}
+            return content, 201
+
+# @bp.route('/api/asset/assetcolumnsmap', defaults={'account_id':None}, methods=['DELETE'])
+@bp.route('/api/asset/assetcolumnsmap/<string:account_id>', methods=['GET','POST','PUT', 'DELETE'])
+def assetcolumnsmap(account_id):
+    match request.method: 
+        case 'GET':
+            _id = request.args.get('id', None)
+            sql_stmt = ''
+            if _id is None:
+                sql_stmt = f'SELECT * FROM account_columns_map m where m.account_id = {account_id}'
+            else:
+                sql_stmt = f'SELECT * FROM account_columns_map m where m.account_id = {account_id} and m.id = {_id}'
+
+            df = pd.read_sql(sql_stmt, get_db())
+            _json = df.to_json(orient='records')
+            _json_obj = json.loads(_json)
+            return {'data': _json_obj}, 200
+        case 'POST':
+            _src_column_name = request.form['src_column_name']
+            _des_column_name = request.form['des_column_name']
+            _is_drop = request.form['is_drop']
+            _format = request.form['format']
+            _custom = request.form['custom']
+            _custom_formula = request.form['custom_formula']
+
+            sql_stmt = f'INSERT INTO account_columns_map (account_id, src_column_name, des_column_name, is_drop, format, custom, custom_formula) ' + \
+            f'VALUES ({account_id},"{_src_column_name}","{_des_column_name}",{_is_drop},"{_format}",{_custom},"{_custom_formula}");'
+            print(sql_stmt)
+            db = get_db()
+
+            db.execute(sql_stmt)
+            db.commit()
+            content = {'message':f'Insert record successfully.)'}
+            return content, 201
+        case 'PUT':
+            _id = request.args.get('id','')
+            if _id == '':
+                return {'message':'Query parameter (ID) must be specified.'}, 400
+            
+            select_stmt = f'SELECT * FROM account_columns_map m where m.account_id = {account_id} and m.id = {_id}'
+            df = pd.read_sql(select_stmt, get_db())
+            if df.empty:
+                return {'message':f'Provided ID {_id} not exists.'}, 400
+            
+            _src_column_name = request.form['src_column_name']
+            _des_column_name = request.form['des_column_name']
+            _is_drop = request.form['is_drop']
+            _format = request.form['format']
+            _custom = request.form['custom']
+            _custom_formula = request.form['custom_formula']
+
+            sql_stmt = f'UPDATE account_columns_map ' + \
+            f'SET account_id = {account_id}, ' + \
+            f'src_column_name="{_src_column_name}", ' + \
+            f'des_column_name="{_des_column_name}", ' + \
+            f'is_drop={_is_drop}, ' + \
+            f'format="{_format}", ' + \
+            f'custom={_custom}, ' + \
+            f'custom_formula="{_custom_formula}" ' + \
+            f'where id = {_id};'
+
+            db = get_db()
+            db.execute(sql_stmt)
+            db.commit()
+            content = {'message':f'Update record successfully.'}
+            return content, 201
+        case 'DELETE':
+            _id = request.args.get('id','')
+            if _id == '':
+                return {'message':'Form data (ID) must be specified.'}, 400
+            else:
+                pass
+            
+            select_stmt = f'SELECT * FROM account_columns_map m where m.account_id = {account_id} and m.id = {_id}'
+            df = pd.read_sql(select_stmt, get_db())
+            if df.empty:
+                return {'message':'No content'}, 400
+            sql_stmt = f'DELETE FROM account_columns_map where id = {_id};'
+            db = get_db()
+            db.execute(sql_stmt)
+            db.commit()
+            content = {'message':f'Delete record seccessfully.'}
+            return content, 201
+
+# @bp.route('/asset', defaults={'message':None})
+# @bp.route('/asset/<string:message>')
 @bp.route('/asset')
 def index():
-    _select_id = request.args.get('id')
-    
-    r = requests.get('http://127.0.0.1:5000/api/asset/assetcolumnsmap/1')
-    j = r.json()
-
-    df = pd.read_json(StringIO(json.dumps(j['data'])), orient='records')
-    
-    # if _select_id == None:
-    #     _select_id = df.min()['id']
-
-    # for index, row in df.iterrows():
-    #     update_link = url_for('asset.update',id=row['id'])
-    #     _id = row['id']
-    #     _desc = row['desc']
-    #     _modal_text = f'Delete categoty with Description <b>{_desc}</b>.'
-    #     df.loc[index, 'Action'] = (
-    #         f'<div class=\'btn-group col-sm-3 text-center\' role=\'group\'>'
-    #         f'<a href=\'{update_link}\' class=\'btn btn-primary\'>Edit</a> '
-    #         f'<button class=\'btn btn-danger\' onclick=\'delete_modal_show({_id},\'{_modal_text}\')\'>Delete</button>'
-    #         f'</div>'
-    #     )
-
-    # df.rename(columns={
-    #                    'desc':'Description',
-    #                    }, inplace=True)
-
-    # _html = df.to_html(header='true', 
-    #                    columns=[
-    #                             'Description',
-    #                             'Action',
-    #                    ],
-    #                    table_id="table", classes=['table','table-sm','table-clickable'], border=False, render_links=True, escape=False, index=False)
-    
-    # df_map = pd.read_sql(f'SELECT * FROM _sourceAccountCsvMapping where _sourceAccount_id = {_select_id}', get_db())
-    # _html_map= df_map.to_html(header='true', 
-    #                 #    columns=[
-    #                 #             'Description',
-    #                 #             'Action',
-    #                 #    ],
-    #                    table_id="table_map", classes=['table','table-sm'], border=False, render_links=True, escape=False, index=False)
-
-    
-    # return render_template('asset/index.html', table=_html, table_map=_html_map, modal_text=_modal_text, headers=df.to_json(orient="records"))
-    return render_template('asset/index.html')
+    message = None
+    if session.get('message') and session['message'] is not None:
+        message = session['message']
+        session['message'] = None
+    return render_template('asset/index.html', message=message)
 
 @bp.route('/asset/create', methods=('GET', 'POST'))
 def create():
+    if request.method == 'POST':
+        if 'has_header' in request.form:
+            _has_header = True
+        else:
+            _has_header = False
+        _account_name = request.form['account_name']
 
+        url = url_for('asset.assetsdata', _external=True)
+        payload = {
+            'account_name': f"'{_account_name}'",
+            'has_header': f'{_has_header}'
+        }
+        resp = requests.post(url, payload)
+        resp_j = json.loads(resp.content)
+
+        session['message'] = resp_j['message']
+
+        return redirect(url_for('asset.index'))
+    
     return render_template('asset/create.html')
 
 @bp.route('/asset/<int:id>/update', methods=('GET', 'POST'))
 def update(id):
+    select_url = url_for('asset.assetsdata', _external=True)
+    resp = requests.get(select_url, params={'id':id})
+    resp_j = resp.json()
+    account = resp_j['data'][0]
 
-    return render_template('asset/update.html')
+    if request.method == 'POST':
+        if 'has_header' in request.form:
+            _has_header = True
+        else:
+            _has_header = False
+        _account_name = request.form['account_name']
 
-@bp.route('/asset/assetcolumnsmap/<string:asset_id>/create', methods=('GET', 'POST'))
-def assetcolumnsmap_create(asset_id):
+        url = url_for('asset.assetsdata', _external=True)
+        payload = {
+            'account_name': f"'{_account_name}'",
+            'has_header': f'{_has_header}'
+        }
+        resp = requests.put(url, params={'id':id}, data=payload)
+        resp_j = json.loads(resp.content)
 
-    return render_template('asset/assetcolumnsmap_create.html')
+        session['message'] = resp_j['message']
 
-@bp.route('/asset/assetcolumnsmap/<string:asset_id>/<string:assetcolumnmap_id>/update', methods=('GET', 'POST'))
-def assetcolumnsmap_update(asset_id,assetcolumnmap_id):
+        return redirect(url_for('asset.index'))
+    
+    return render_template('asset/update.html', account=account)
 
-    return render_template('asset/assetcolumnsmap_update.html')
+@bp.route('/asset/assetsdata/delete', methods=['POST'])
+def assetsdata_delete():
+    _id = ''
+    if 'hidden_id' in request.form:
+        _id = request.form['hidden_id']
+        if _id == '':
+            message='Form data (ID) must be specified.'
+        else:
+            pass
+    else:
+        message='Form data (ID) must be specified.'
+
+    url = url_for('asset.assetsdata', _external=True)
+    payload = {
+        'id':_id
+    }
+    resp = requests.delete(url, params=payload)
+    resp_j = json.loads(resp.content)
+    message = resp_j['message']
+
+    session['message'] = message
+
+    return redirect(url_for('asset.index')) 
+
+@bp.route('/asset/assetcolumnsmap/<string:account_id>/create', methods=('GET', 'POST'))
+def assetcolumnsmap_create(account_id):     
+    form = AccountColumnsMapForm()
+    if form.validate_on_submit():
+        url = url_for('asset.assetcolumnsmap', account_id=account_id, _external=True)
+        payload = {
+            'src_column_name': f"{form.src_column_name.data}",
+            'des_column_name': f"{form.des_column_name.data}",
+            'is_drop': f"{form.is_drop.data}",
+            'format': f"{form.format.data}",
+            'custom': f"{form.custom.data}",
+            'custom_formula': f"{form.custom_formula.data}",
+        }
+        resp = requests.post(url, data=payload)
+        resp_j = json.loads(resp.content)
+
+        session['message'] = resp_j['message']
+
+        return redirect(url_for('asset.index'))
+    
+    return render_template('asset/assetcolumnsmap_create.html', form=form)
+
+# @bp.route('/asset/assetcolumnsmap/<string:account_id>/delete', methods=['POST'])
+# def assetcolumnsmap_delete(account_id):
+#     _id = ''
+#     if 'id' in request.form:
+#         _id = request.form['id']
+#         if _id == '':
+#             message='Form data (ID) must be specified.'
+#         else:
+#             pass
+#     else:
+#         message='Form data (ID) must be specified.'
+
+#     url = url_for('asset.assetcolumnsmap', account_id=account_id, _external=True)
+#     payload = {
+#         'id':_id
+#     }
+#     resp = requests.delete(url, params=payload)
+#     resp_j = json.loads(resp.content)
+#     message = resp_j['message']
+
+#     session['message'] = message
+
+#     return redirect(url_for('asset.index')) 
+
+@bp.route('/asset/assetcolumnsmap/<string:account_id>/<string:id>/update', methods=('GET', 'POST'))
+def assetcolumnsmap_update(account_id,id):
+    url = url_for('asset.assetcolumnsmap', account_id=account_id, id=id, _external=True)
+    resp = requests.get(url, params={'id':id})
+    resp_j = resp.json()
+    form = AccountColumnsMapForm(data=resp_j['data'][0])
+
+    if form.validate_on_submit():
+        url = url_for('asset.assetcolumnsmap', account_id=account_id, id=id, _external=True)
+        payload = {
+            'src_column_name': f"{form.src_column_name.data}",
+            'des_column_name': f"{form.des_column_name.data}",
+            'is_drop': f"{form.is_drop.data}",
+            'format': f"{form.format.data}",
+            'custom': f"{form.custom.data}",
+            'custom_formula': f"{form.custom_formula.data}",
+        }
+        resp = requests.put(url, data=payload)
+        resp_j = json.loads(resp.content)
+
+        session['message'] = resp_j['message']
+
+        return redirect(url_for('asset.index'))
+    return render_template('asset/assetcolumnsmap_update.html', form=form)
