@@ -6,7 +6,7 @@ import pandas as pd
 
 from werkzeug.exceptions import abort
 
-from firefly_management.db import get_db
+from app.db import get_db
 
 from . import home
 

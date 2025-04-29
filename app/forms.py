@@ -2,7 +2,9 @@ from flask_wtf import FlaskForm
 from wtforms import (StringField, TextAreaField, IntegerField, BooleanField,
                      RadioField)
 from wtforms.validators import InputRequired, Length, ValidationError
-
+from wtforms_alchemy import ModelForm
+from wtforms_alchemy import model_form_factory
+from . import models
 
 def length_check(form, field):
     if len(field.data) > 10:
@@ -17,3 +19,8 @@ class AccountColumnsMapForm(FlaskForm):
     format = StringField('Format:', validators=[Length(min=0, max=50)])
     custom = BooleanField('Custom', default='')
     custom_formula = StringField('Custom formula:', validators=[Length(min=0, max=50)])
+
+class AccountsForm(FlaskForm):
+    account_name = StringField('Account name:', validators=[InputRequired(),
+                                                            Length(min=1, max=100)])
+    has_header = BooleanField('Has header', default='')

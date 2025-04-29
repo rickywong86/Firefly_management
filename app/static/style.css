@@ -2,3 +2,7 @@
     background-color: red;
     color: white;
 }
+
+.table-clickable {
+    cursor: pointer;
+}

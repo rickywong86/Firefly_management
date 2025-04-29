@@ -4,14 +4,14 @@ from flask import (
 
 from werkzeug.exceptions import abort
 
-from firefly_management.db import get_db
+from app.db import get_db
 
 import pandas as pd
 import json
 import requests
 from io import StringIO
 
-from .forms import AccountColumnsMapForm
+from .forms import AccountColumnsMapForm, AccountsForm
 
 bp = Blueprint('asset', __name__)
 
@@ -32,13 +32,13 @@ def assetsdata():
         case 'POST':
             _account_name = request.form['account_name']
             _has_header = request.form['has_header']
-            sql_stmt = f'INSERT INTO accounts (account_name, has_header) VALUES ({_account_name},{_has_header});'
+            sql_stmt = f'INSERT INTO accounts (account_name, has_header) VALUES ("{_account_name}",{_has_header});'
 
             db = get_db()
 
             db.execute(sql_stmt)
             db.commit()
-            content = {'message':f'Insert record (account_name:{_account_name},has_header:{_has_header})'}
+            content = {'message':f'Insert record (account_name:"{_account_name}",has_header:{_has_header})'}
             return content, 201
         case 'PUT':
             _id = request.args.get('id','')
@@ -52,11 +52,11 @@ def assetsdata():
             
             _account_name = request.form['account_name']
             _has_header = request.form['has_header']
-            sql_stmt = f'UPDATE accounts SET account_name = {_account_name}, has_header={_has_header} where id = {_id};'
+            sql_stmt = f'UPDATE accounts SET account_name = "{_account_name}", has_header={_has_header} where id = {_id};'
             db = get_db()
             db.execute(sql_stmt)
             db.commit()
-            content = {'message':f'Update record (account_name:{_account_name},has_header:{_has_header}, id: {_id})'}
+            content = {'message':f'Update record (account_name:"{_account_name}",has_header:{_has_header}, id: {_id})'}
             return content, 201
         case 'DELETE':
             _id = request.args.get('id','')
@@ -171,26 +171,40 @@ def index():
 
 @bp.route('/asset/create', methods=('GET', 'POST'))
 def create():
-    if request.method == 'POST':
-        if 'has_header' in request.form:
-            _has_header = True
-        else:
-            _has_header = False
-        _account_name = request.form['account_name']
-
+    form = AccountsForm()
+    if form.validate_on_submit():
         url = url_for('asset.assetsdata', _external=True)
         payload = {
-            'account_name': f"'{_account_name}'",
-            'has_header': f'{_has_header}'
+            'account_name': f"{form.account_name.data}",
+            'has_header': f"{form.has_header.data}",
         }
-        resp = requests.post(url, payload)
+        resp = requests.post(url, data=payload)
         resp_j = json.loads(resp.content)
 
         session['message'] = resp_j['message']
 
         return redirect(url_for('asset.index'))
     
-    return render_template('asset/create.html')
+    # if request.method == 'POST':
+    #     if 'has_header' in request.form:
+    #         _has_header = True
+    #     else:
+    #         _has_header = False
+    #     _account_name = request.form['account_name']
+
+    #     url = url_for('asset.assetsdata', _external=True)
+    #     payload = {
+    #         'account_name': f"'{_account_name}'",
+    #         'has_header': f'{_has_header}'
+    #     }
+    #     resp = requests.post(url, payload)
+    #     resp_j = json.loads(resp.content)
+
+    #     session['message'] = resp_j['message']
+
+    #     return redirect(url_for('asset.index'))
+    
+    return render_template('asset/create.html', form=form)
 
 @bp.route('/asset/<int:id>/update', methods=('GET', 'POST'))
 def update(id):

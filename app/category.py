@@ -4,7 +4,7 @@ from flask import (
 
 from werkzeug.exceptions import abort
 
-from firefly_management.db import get_db
+from app.db import get_db
 
 import pandas as pd
 from . import home

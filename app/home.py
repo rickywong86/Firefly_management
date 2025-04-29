@@ -13,7 +13,7 @@ from thefuzz import process
 from werkzeug.exceptions import abort
 from werkzeug.utils import secure_filename
 
-from firefly_management.db import get_db
+from app.db import get_db
 
 bp = Blueprint('home', __name__)
 

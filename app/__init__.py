@@ -2,7 +2,9 @@ import os
 
 from flask import Flask
 from flask_bootstrap import Bootstrap4
+from flask_sqlalchemy import SQLAlchemy
 
+database = SQLAlchemy()
 
 def create_app(test_config=None):
     # create and configure the app
@@ -12,9 +14,13 @@ def create_app(test_config=None):
         DATABASE=os.path.join(app.instance_path, 'db.sqlite'),
         UPLOAD_FOLDER = app.instance_path,
         ALLOWED_EXTENSIONS = {'txt','csv'},
-        TEMPLATE_AUTO_RELOAD = True
+        TEMPLATE_AUTO_RELOAD = True,
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(app.instance_path, 'db.sqlite'),
+        SQLALCHEMY_TRACK_MODIFICATIONS = False,
     )
 
+    database.init_app(app)
+    
     if test_config is None:
         # load the instance config, if it exists, when not testing
         app.config.from_pyfile('config.py', silent=True)

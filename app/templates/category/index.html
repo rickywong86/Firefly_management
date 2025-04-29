@@ -44,8 +44,10 @@
 
 {% block custom_script %}
 <script>
+
     $(document).ready(function () {
         $('th').addClass('text-left');
+        $('#table').DataTable();
     })
 
     function delete_modal_show(id, desc) {

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block header %}
+<h1>{% block title %}Asset create{% endblock %}</h1>
+
+{% endblock %}
+
+{% block content %}
+<section>
+    <a href="javascript:history.back()" class="btn btn-secondary">Back to previous page</a>
+</section>
+<form method="post">
+    {{ form.csrf_token }}
+    <div class="form-group">
+        {{ form.account_name.label (class="form-label")}}
+        {{ form.account_name(size=100, class="form-control")}}
+    </div>
+    {% if form.account_name.errors %}
+    <ul class="errors">
+        {% for error in form.account_name.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <div class="custom-control custom-switch">
+        {{ form.has_header(class="custom-control-input") }} {{ form.has_header.label(class="custom-control-label") }}
+    </div>
+    {% if form.has_header.errors %}
+    <ul class="errors">
+        {% for error in form.has_header.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <input class="btn btn-primary" type="submit" value="Save">
+</form>
+{% endblock %}
