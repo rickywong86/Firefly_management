@@ -9,29 +9,53 @@
     <a href="javascript:history.back()" class="btn btn-secondary">Back to previous page</a>
 </section>
 <form method="post">
+    {{ form.csrf_token }}
     <div class="form-group">
-        <label for="key" class="form-label">Key</label>
-        <input class="form-control" name="key" id="key" value="{{ request.form['key'] }}" required>
+        {{ form.key.label (class="form-label")}}
+        {{ form.key(size=100, class="form-control")}}
     </div>
+    {% if form.key.errors %}
+    <ul class="errors">
+        {% for error in form.key.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
     <div class="form-group">
-        <label for="category" class="form-label">Category</label>
-        <input class="form-control" list="category" name="category" value="{{ request.form['category'] }}" required>
+        {{ form.category.label (class="form-label")}}
+        {{ form.category(size=100, class="form-control", list="category")}}
         <datalist id="category">
             {% for value in category_list %}
-            <option value="{{value[0]}}"></option>
+            <option value="{{value}}"></option>
             {% endfor %}
         </datalist>
     </div>
+    {% if form.category.errors %}
+    <ul class="errors">
+        {% for error in form.category.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
     <div class="form-group">
-        <label for="destinationAcc" class="form-label">Destination account</label>
-        <input class="form-control" list="destinationAcc" name="destinationAcc"
-            value="{{ request.form['destinationAcc'] }}" required>
-        <datalist id="destinationAcc">
+        {{ form.destinationAcc.label (class="form-label")}}
+        {{ form.destinationAcc(size=100, class="form-control", list="category")}}
+        <datalist id="category">
             {% for value in destinationAcc_list %}
-            <option value="{{value[0]}}"></option>
+            <option value="{{value}}"></option>
             {% endfor %}
         </datalist>
     </div>
+    {% if form.destinationAcc.errors %}
+    <ul class="errors">
+        {% for error in form.destinationAcc.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
     <input class="btn btn-primary" type="submit" value="Save">
 </form>
 {% endblock %}

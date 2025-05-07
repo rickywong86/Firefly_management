@@ -3,8 +3,10 @@ import os
 from flask import Flask
 from flask_bootstrap import Bootstrap4
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 
 database = SQLAlchemy()
+migrate = Migrate()
 
 def create_app(test_config=None):
     # create and configure the app
@@ -20,6 +22,7 @@ def create_app(test_config=None):
     )
 
     database.init_app(app)
+    migrate.init_app(app, database)
     
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -48,6 +51,9 @@ def create_app(test_config=None):
 
     from . import asset
     app.register_blueprint(asset.bp)
+
+    from . import users
+    app.register_blueprint(users.bp)
 
     # from . import blog
     # app.register_blueprint(blog.bp)

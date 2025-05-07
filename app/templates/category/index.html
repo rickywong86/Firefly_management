@@ -12,9 +12,27 @@
     <a class="btn btn-primary" href="{{ url_for('category.create') }}">New</a>
 </section>
 
-<div class="text-left">
-    {{table|safe}}
-</div>
+<section class="text-left">
+    <!-- <table id="table"></table> -->
+    <table id="table" class="display" cellspacing="0">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>{{ form.key.label }}</th>
+                <th>{{ form.category.label }}</th>
+                <th>{{ form.destinationAcc.label }}</th>
+            </tr>
+        </thead>
+        <tfoot>
+            <tr>
+                <th>ID</th>
+                <th>{{ form.key.label }}</th>
+                <th>{{ form.category.label }}</th>
+                <th>{{ form.destinationAcc.label }}</th>
+            </tr>
+        </tfoot>
+    </table>
+</section>
 
 <div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
     aria-hidden="true">
@@ -37,27 +55,98 @@
         </div>
     </div>
 </div>
-<form method="post" action="{{url_for('category.delete')}}" enctype="multipart/form-data" name="theForm">
-    <input type="hidden" id="hidden_id" name="hidden_id" />
-</form>
+
 {% endblock %}
 
 {% block custom_script %}
 <script>
+    var _table;
 
     $(document).ready(function () {
         $('th').addClass('text-left');
-        $('#table').DataTable();
+        _table = $('#table').DataTable({
+            'ajax': {
+                "type": "GET",
+                "url": '/api/category',
+            },
+            columnDefs: [
+                {
+                    target: 0,
+                    visible: false,
+                    searchable: false
+                }
+            ],
+            "columns": [
+                { "data": "id" },
+                { "data": "key" },
+                { "data": "category" },
+                { "data": "destinationAcc" },
+            ],
+            layout: {
+                topStart: {
+                    buttons: [
+                        {
+                            text: 'Create',
+                            action: function () {
+                                window.location.href = '{{ url_for("category.create") }}';
+                            }
+                        },
+                        {
+                            text: 'Edit',
+                            action: function () {
+                                let _d = _table.rows({ selected: true }).data();
+                                let _id = _d[0].id;
+                                let _url = `{{url_for('category.update',id=0)}}`.replace('0', _id);
+                                window.location.href = _url;
+                            },
+                            enabled: false,
+                        },
+                        {
+                            text: 'Delete',
+                            action: function (e) {
+                                e.stopPropagation();
+                                let _d1 = _table.rows({ selected: true }).data();
+                                let _id = _d1[0].id;
+                                $.confirm({
+                                    title: 'Confirm!',
+                                    content: 'Simple confirm!',
+                                    buttons: {
+                                        confirm: function () {
+                                            let _url = `{{url_for('category.category', id='var_1')}}`.replace('var_1', _id);
+                                            let _payload = {
+                                                'id': _id,
+                                            }
+                                            $.ajax({
+                                                url: _url,
+                                                type: 'DELETE',
+                                                statusCode: {
+                                                    201: function (result) {
+                                                        $.alert(result.message);
+
+                                                        $('#table').DataTable().ajax.reload(null, false);
+                                                    }
+                                                }
+                                            });
+                                        },
+                                        cancel: function () {
+                                            $.alert('Canceled!');
+                                        },
+                                    }
+                                });
+                            },
+                            enabled: false,
+                        }
+                    ]
+                }
+            },
+            select: true,
+        });
+        _table.on('select deselect', function () {
+            var selectedRows = _table.rows({ selected: true }).count();
+
+            _table.button(1).enable(selectedRows === 1);
+            _table.button(2).enable(selectedRows === 1);
+        });
     })
-
-    function delete_modal_show(id, desc) {
-        $('#desc_text').html(desc);
-        $('#hidden_id').val(id);
-        $('#deleteModal').modal('toggle');
-    }
-
-    function delete_action() {
-        document.theForm.submit();
-    }
 </script>
 {% endblock %}

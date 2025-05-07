@@ -4,6 +4,7 @@ import csv
 import io
 import re
 import pandas as pd
+import json
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, current_app, session
 )
@@ -16,6 +17,9 @@ from werkzeug.utils import secure_filename
 from app.db import get_db
 
 bp = Blueprint('home', __name__)
+
+df_accounts = None
+df_account_columns_map = None
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -63,29 +67,37 @@ def insertData(data, filename):
     return
 
 def modify_transaction(df, sourceAcc):
-    print(sourceAcc)
-    if sourceAcc == 'HSBC UK':
-        df.to_csv('tmp.csv', header=['transdate','desc','amount'], index=False)
+    global df_accounts
+    global df_account_columns_map
+    df = df.fillna(0)
+    df_column_def = df_accounts.merge(df_account_columns_map,left_on='id',right_on='account_id')
+    df_column_def = df_column_def.drop(columns=['id_x','id_y','account_id'])
+
+    df_column_def = df_column_def.loc[df_column_def['account_name'] == sourceAcc]
+    drop_columns = df_column_def.loc[df_column_def['is_drop'] == True]['src_column_name'].to_numpy()
+    has_header = df_accounts.loc[df_accounts['account_name'] == sourceAcc, 'has_header'].values[0]
+    if has_header == False:
+        header = df_column_def.loc[df_column_def['custom'] == False]['src_column_name'].to_numpy()
+        print(header)
+        df.to_csv('tmp.csv', header=header, index=False)
         df = pd.read_csv('tmp.csv')
+    
+    df_column_def['format'].str.strip()
 
-    if sourceAcc == 'Barclays' or sourceAcc =='Barclays ISA':
-        df = df.drop(columns=['Number','Account','Subcategory'])
-        df = df.rename(columns={'Date':'transdate','Amount':'amount','Memo':'desc'})
-
-    if sourceAcc == 'Amex (BA)':
-        # df['Description'] = df['Description'] + ' (' + df['Card Member'] + ')'
-        df['Amount'] = df['Amount'] * -1
-        df = df.drop(columns=['Account #', 'Card Member'])
-        df = df.rename(columns={'Date':'transdate','Amount':'amount','Description':'desc'})
-
-    if sourceAcc == "Barclays (Avois)":
-        df.to_csv('tmp.csv', header=['transdate','desc','card','owner','type','credit','debit'], index=False)
-        df = pd.read_csv('tmp.csv')
-        df['transdate'] = pd.to_datetime(df['transdate'], format='%d %b %y')
-        df['transdate'] = df['transdate'].dt.strftime('%d/%m/%Y')
-        df = df.fillna(0)
-        df['amount'] = (df['debit'] + df['credit']) * -1
-        df = df.drop(columns=['card','owner','type','credit','debit'])
+    df_format = df_column_def.loc[df_column_def['format'] != '']
+    for index, row in df_format.iterrows():
+        df[row['src_column_name']] = pd.to_datetime(df[row['src_column_name']], format=row['format'])
+        df[row['src_column_name']] = df[row['src_column_name']].dt.strftime('%d/%m/%Y')
+    df_custom = df_column_def.loc[df_column_def['custom'] != 0]
+    for index, row in df_custom.iterrows():
+        df = pd.eval(f'{row["src_column_name"]} = {row["custom_formula"]}', target=df)
+        # df = pd.eval(f'amount = df.Amount * -1', target=df)
+    df = df.drop(columns=drop_columns)
+    df_rename_dict = df_column_def.loc[(df_column_def['des_column_name'] != df_column_def['src_column_name']) & (df_column_def['is_drop'] == False)].drop(columns=['account_name','has_header','is_drop'])
+    dict_rename = {}
+    for index, row in df_rename_dict.iterrows():
+        dict_rename[row['src_column_name']] = row['des_column_name']
+    df = df.rename(columns=dict_rename)
 
     for index, row in df.iterrows():
         df_result = scoring(row['desc'])
@@ -129,6 +141,14 @@ def index():
     session.clear()
     session['key'] = uuid.uuid4().hex[:6].upper()
 
+    global df_accounts, df_account_columns_map
+
+    df_accounts = pd.read_sql('SELECT * FROM accounts', get_db())
+    df_account_columns_map = pd.read_sql('SELECT * FROM account_columns_map', get_db())
+
+    df_accounts = df_accounts.astype({'has_header':'boolean'})
+    df_account_columns_map = df_account_columns_map.astype({'is_drop':'boolean','custom':'boolean'})
+
     if request.method == 'POST':
         # check if the post request has the file part
         if 'file' not in request.files:
@@ -145,7 +165,7 @@ def index():
            
             sourceAcc = request.form.get('sourceAcc')
 
-            df = pd.read_csv(file)
+            df = pd.read_csv(file, thousands=',')
             df = modify_transaction(df, sourceAcc)
 
             df['sourceAcc'] = sourceAcc
@@ -157,5 +177,9 @@ def index():
             flash('File extension is not allowed.')
             return redirect(request.url)
     
-    return render_template('home/index.html')
+    json_account = df_accounts['account_name'].to_json()
+    obj_account = json.loads(json_account)
+    list_account = list(obj_account.values())
+
+    return render_template('home/index.html', accounts=list_account)
 

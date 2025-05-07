@@ -11,6 +11,7 @@ def length_check(form, field):
         raise ValidationError('String too long.')
     
 class AccountColumnsMapForm(FlaskForm):
+    seq = IntegerField('Sequence:', validators=[InputRequired()])
     src_column_name = StringField('Source column:', validators=[InputRequired(),
                                             Length(min=1, max=100)])
     des_column_name = StringField('Destination column:', validators=[InputRequired(),
@@ -24,3 +25,8 @@ class AccountsForm(FlaskForm):
     account_name = StringField('Account name:', validators=[InputRequired(),
                                                             Length(min=1, max=100)])
     has_header = BooleanField('Has header', default='')
+
+class CategoryForm(FlaskForm):
+    key = StringField('Key:', validators=[InputRequired(), Length(min=1, max=100)])
+    category = StringField('Category:', validators=[InputRequired(), Length(min=1, max=100)])
+    destinationAcc = StringField('Expense account:', validators=[InputRequired(), Length(min=1, max=100)])

@@ -7,15 +7,19 @@
 {% endblock %}
 
 {% block content %}
+
 <form method="post" enctype="multipart/form-data">
     <div class="input-group mb-3">
         <label for="sourceAcc" class="input-group-text">Source account:</label>
         <select name="sourceAcc" class="form-select">
-            <option value="Amex (BA)">Amex</option>
+            {% for account in accounts %}
+            <option value="{{ account }}">{{ account }}</option>
+            {% endfor %}
+            <!-- <option value="Amex (BA)">Amex</option>
             <option value="HSBC UK">HSBC UK</option>
             <option value="Barclays">Barclays</option>
             <option value="Barclays ISA">Barclays ISA</option>
-            <option value="Barclays (Avois)">Barclays (Avois)</option>
+            <option value="Barclays (Avois)">Barclays (Avois)</option> -->
         </select>
     </div>
     <div class="input-group mb-3">

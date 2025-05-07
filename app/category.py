@@ -1,5 +1,5 @@
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, sessions
+    Blueprint, flash, g, redirect, render_template, request, url_for, sessions, jsonify
 )
 
 from werkzeug.exceptions import abort
@@ -8,76 +8,40 @@ from app.db import get_db
 
 import pandas as pd
 from . import home
+from .models import category as c
+import json
+from .forms import CategoryForm
+from . import database
 
 bp = Blueprint('category', __name__)
 
-@bp.route('/category')
-def index():
-    # db = get_db()
-    # categories = db.execute(
-    #     'SELECT id, key, category, destinationAcc FROM __category'
-    # ).fetchall()
-    df = pd.read_sql('SELECT id, key, category, destinationAcc FROM __category', get_db())
+def insert(key, category, destinationAcc):
+    _insert = c(key=key,category=category,destinationAcc = destinationAcc)
+    database.session.add(_insert)
+    database.session.commit()
 
-    for index, row in df.iterrows():
-        update_link = url_for('category.update',id=row['id'])
-        _id = row['id']
-        _desc = row['key']
-        df.loc[index, 'Action'] = (
-            f'<div class="btn-group col-sm-12 text-center" role="group">'
-            f'<a href="{update_link}" class="btn btn-primary">Edit</a> '
-            f"<button class='btn btn-danger' onclick='delete_modal_show({_id},\"{_desc}\")'>Delete</button>"
-            f'</div>'
-        )
-    
-    df.rename(columns={
-                       'key':'Description',
-                       'destinationAcc':'Destination account',
-                       'category':'Category'}, inplace=True)
-    
-    _html = df.to_html(header='true', 
-                       columns=[
-                                'Description',
-                                'Destination account',
-                                'Category',
-                                'Action',
-                       ],
-                       table_id="table", classes=['table','table-sm'], border=False, render_links=True, escape=False, index=False)
-    return render_template('category/index.html', table=_html)
+def edit(c, key, category, destinationAcc):
+    c.key = key
+    c.category = category
+    c.destinationAcc = destinationAcc
+    database.session.commit()
 
-@bp.route('/category/create', methods=('GET', 'POST'))
-def create():
-    if request.method == 'POST':
-        key = request.form['key']
-        cat = request.form['category']
-        destinationAcc = request.form['destinationAcc']
-        error = None
+def delete(id):
+    _to_delete = c.query.get(id)
+    database.session.delete(_to_delete)
+    database.session.commit()
 
-        if not key:
-            error = 'Key is required.'
+def get_category_list():
+    list = []
+    for x in c.query.distinct(c.category):
+        list.append(x.category)
+    return list
 
-        if not cat:
-            error = 'Category is required.'
-
-        if not destinationAcc:
-            error = 'DestinationAcc is required.'
-
-        if error is not None:
-            flash(error)
-        else:
-            db = get_db()
-            db.execute(
-                'INSERT INTO __category (key, category, destinationAcc)'
-                ' VALUES (?, ?, ?)',
-                (key, cat, destinationAcc)
-            )
-            db.commit()
-            return redirect(url_for('category.index'))
-        
-    destinationAcc_list = pd.read_sql('SELECT DISTINCT destinationAcc FROM __category', get_db())
-    category_list = pd.read_sql('SELECT DISTINCT category FROM __category', get_db())
-
-    return render_template('category/create.html', destinationAcc_list = destinationAcc_list.values, category_list = category_list.values)
+def get_destinationAcc_list():
+    list = []
+    for x in c.query.distinct(c.destinationAcc):
+        list.append(x.destinationAcc)
+    return list
 
 def get_category(id):
     result = get_db().execute(
@@ -90,52 +54,90 @@ def get_category(id):
 
     return result
 
-@bp.route('/category/<int:id>/update', methods=('GET', 'POST'))
-def update(id):
-    result = get_category(id)
+@bp.route('/api/category', methods=['GET','POST','PUT','DELETE'])
+def category():
+    match request.method: 
+        case 'GET':
+            _id = request.args.get('id', None)
+            if _id is None:
+                result = c.query.all()
+                return {"data": [x.to_dict(show=['key','category','destinationAcc']) for x in result]}, 200
+            else:
+                result = c.query.filter_by(id=_id).first()
+                return result.to_dict(show=['key','category','destinationAcc']), 200
+        case 'POST':
+            _key = request.form['account_name']
+            _category = request.form['has_header']
+            _destinationAcc = request.form['destinationAcc']
 
-    if request.method == 'POST':
+            insert(_key,_category,_destinationAcc)
+
+            return {'message', 'create success.'}, 201
+        case 'PUT':
+            _id = request.args.get('id','')
+            if _id == '':
+                return {'message':'Query parameter (ID) must be specified.'}, 400
+            
+            result = c.query.get(_id)
+            if result is None:
+                return {'message':f'Provided ID {_id} not exists.'}, 400
+            else:
+                _key = request.form['src_column_name']
+                _category = request.form['des_column_name']
+                _destinationAcc = request.form['is_drop']
+
+                edit(_key,_category,_destinationAcc)
+            
+                content = {'message':f'Update record successfully.'}
+                return content, 201 
+        case 'DELETE':
+            _id = request.args.get('id','')
+            if _id == '':
+                return {'message':'Form data (ID) must be specified.'}, 400
+            else:
+                pass
+            
+            result = c.query.get(_id)
+            if result is None:
+                return {'message':'No content'}, 400
+            else:
+                delete(_id)
+                flash('Record deleted.','alert alert-success')
+                content = {'message':f'Delete record successfully.'}
+                return content, 201
+
+        
+
+@bp.route('/category')
+def index():
+    form = CategoryForm()
+    
+    return render_template('category/index.html', form=form)
+
+@bp.route('/category/create', methods=('GET', 'POST'))
+def create():
+    form = CategoryForm()
+    if form.validate_on_submit():
+        insert(form.key.data, form.category.data, form.destinationAcc.data)
+        flash('Create successful.','alert alert-success')
+        return redirect(url_for('category.index'))
+
+    return render_template('category/create.html', form=form, destinationAcc_list = get_destinationAcc_list(), category_list = get_category_list())
+
+@bp.route('/category/<string:id>/update', methods=('GET', 'POST'))
+def update(id):
+    result = c.query.get(id)
+    form = CategoryForm(obj=result)
+    if form.validate_on_submit():
         key = request.form['key']
         cat = request.form['category']
         destinationAcc = request.form['destinationAcc']
-        error = None
 
-        if not key:
-            error = 'Key is required.'
+        edit(result,key,cat,destinationAcc)
+        flash('Update successful.','alert alert-success')
+        return redirect(url_for('category.index'))
 
-        if not cat:
-            error = 'Category is required.'
-
-        if not destinationAcc:
-            error = 'DestinationAcc is required.'
-
-        if error is not None:
-            flash(error)
-        else:
-            db = get_db()
-            db.execute(
-                'UPDATE __category SET key = ?, category = ?, destinationAcc = ?'
-                ' WHERE id = ?',
-                (key, cat, destinationAcc, id)
-            )
-            db.commit()
-            return redirect(url_for('category.index'))
-
-    destinationAcc_list = pd.read_sql('SELECT DISTINCT destinationAcc FROM __category', get_db())
-    category_list = pd.read_sql('SELECT DISTINCT category FROM __category', get_db())
-
-    return render_template('category/update.html', category=result, destinationAcc_list = destinationAcc_list.values, category_list = category_list.values)
-
-@bp.route('/category/delete', methods=('POST',))
-def delete():
-    print('run')
-    id = request.form['hidden_id']
-    get_category(id)
-    db = get_db()
-    db.execute('DELETE FROM __category WHERE id = ?', (id,))
-    db.commit()
-    return redirect(url_for('category.index'))
-
+    return render_template('category/update.html', form=form, destinationAcc_list = get_destinationAcc_list(), category_list = get_category_list())
 
 @bp.route('/category/selection/<string:desc>/<int:index>', methods=['GET','POST'])
 def category_selection(desc,index):

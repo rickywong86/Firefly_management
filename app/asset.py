@@ -185,25 +185,6 @@ def create():
 
         return redirect(url_for('asset.index'))
     
-    # if request.method == 'POST':
-    #     if 'has_header' in request.form:
-    #         _has_header = True
-    #     else:
-    #         _has_header = False
-    #     _account_name = request.form['account_name']
-
-    #     url = url_for('asset.assetsdata', _external=True)
-    #     payload = {
-    #         'account_name': f"'{_account_name}'",
-    #         'has_header': f'{_has_header}'
-    #     }
-    #     resp = requests.post(url, payload)
-    #     resp_j = json.loads(resp.content)
-
-    #     session['message'] = resp_j['message']
-
-    #     return redirect(url_for('asset.index'))
-    
     return render_template('asset/create.html', form=form)
 
 @bp.route('/asset/<int:id>/update', methods=('GET', 'POST'))
@@ -279,30 +260,6 @@ def assetcolumnsmap_create(account_id):
         return redirect(url_for('asset.index'))
     
     return render_template('asset/assetcolumnsmap_create.html', form=form)
-
-# @bp.route('/asset/assetcolumnsmap/<string:account_id>/delete', methods=['POST'])
-# def assetcolumnsmap_delete(account_id):
-#     _id = ''
-#     if 'id' in request.form:
-#         _id = request.form['id']
-#         if _id == '':
-#             message='Form data (ID) must be specified.'
-#         else:
-#             pass
-#     else:
-#         message='Form data (ID) must be specified.'
-
-#     url = url_for('asset.assetcolumnsmap', account_id=account_id, _external=True)
-#     payload = {
-#         'id':_id
-#     }
-#     resp = requests.delete(url, params=payload)
-#     resp_j = json.loads(resp.content)
-#     message = resp_j['message']
-
-#     session['message'] = message
-
-#     return redirect(url_for('asset.index')) 
 
 @bp.route('/asset/assetcolumnsmap/<string:account_id>/<string:id>/update', methods=('GET', 'POST'))
 def assetcolumnsmap_update(account_id,id):

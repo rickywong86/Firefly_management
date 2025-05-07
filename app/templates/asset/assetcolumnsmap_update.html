@@ -11,6 +11,19 @@
 </section>
 <form method="post">
     {{ form.csrf_token }}
+
+    <div class="form-group">
+        {{ form.seq.label (class="form-label")}}
+        {{ form.seq(size=20, class="form-control")}}
+    </div>
+    {% if form.seq.errors %}
+    <ul class="errors">
+        {% for error in form.seq.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
     <div class="form-group">
         {{ form.src_column_name.label (class="form-label")}}
         {{ form.src_column_name(size=20, class="form-control")}}
