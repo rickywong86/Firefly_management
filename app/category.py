@@ -1,5 +1,5 @@
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, sessions, jsonify
+    Blueprint, flash, g, redirect, render_template, request, url_for, sessions, jsonify, make_response
 )
 
 from werkzeug.exceptions import abort
@@ -66,13 +66,16 @@ def category():
                 result = c.query.filter_by(id=_id).first()
                 return result.to_dict(show=['key','category','destinationAcc']), 200
         case 'POST':
-            _key = request.form['account_name']
-            _category = request.form['has_header']
+            _key = request.form['key']
+            _category = request.form['category']
             _destinationAcc = request.form['destinationAcc']
-
-            insert(_key,_category,_destinationAcc)
-
-            return {'message', 'create success.'}, 201
+            form = CategoryForm(request.form)
+            if form.validate():
+                insert(_key,_category,_destinationAcc)
+            else:
+                return jsonify(form.errors), 400
+ 
+            return jsonify({'message': 'Create record success.'}), 201
         case 'PUT':
             _id = request.args.get('id','')
             if _id == '':
@@ -82,11 +85,14 @@ def category():
             if result is None:
                 return {'message':f'Provided ID {_id} not exists.'}, 400
             else:
-                _key = request.form['src_column_name']
-                _category = request.form['des_column_name']
-                _destinationAcc = request.form['is_drop']
-
-                edit(_key,_category,_destinationAcc)
+                _key = request.form['key']
+                _category = request.form['category']
+                _destinationAcc = request.form['destinationAcc']
+                form = CategoryForm(request.form)
+                if form.validate():
+                    edit(result, _key,_category,_destinationAcc)
+                else:
+                    return jsonify(form.errors), 400
             
                 content = {'message':f'Update record successfully.'}
                 return content, 201 
@@ -102,11 +108,26 @@ def category():
                 return {'message':'No content'}, 400
             else:
                 delete(_id)
-                flash('Record deleted.','alert alert-success')
                 content = {'message':f'Delete record successfully.'}
                 return content, 201
 
+@bp.route('/category/dialog/<id>', methods=['GET'])
+@bp.route('/category/dialog', methods=['GET','POST','PUT'], defaults={'id': None})
+def dialog(id):
+    if id is not None:
+        model = c.query.get(id)
+        formid = 'edit_dialog'
+        form = CategoryForm(obj=model)
+    else:
+        formid = 'create_dialog'
+        form = CategoryForm() 
+    if request.method == 'POST':
+        if form.validate():
+            insert(form.key.data, form.category.data, form.destinationAcc.data)
+            return {'message':'Insert successful.'}, 201
+        return jsonify(form.errors), 400
         
+    return render_template('category/dialog.html', formid=formid, form=form, destinationAcc_list = get_destinationAcc_list(), category_list = get_category_list()), 200
 
 @bp.route('/category')
 def index():
