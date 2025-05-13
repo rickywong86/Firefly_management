@@ -1,0 +1,7 @@
+venv/
+venv-3.11/
+migrations/
+tmp.csv/
+__pycache__/
+app/__pycache__/
+instance/

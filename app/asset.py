@@ -1,5 +1,5 @@
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, sessions, session
+    Blueprint, flash, g, redirect, render_template, request, url_for, sessions, session, jsonify
 )
 
 from werkzeug.exceptions import abort
@@ -11,51 +11,82 @@ import json
 import requests
 from io import StringIO
 
+from .models import accounts, account_columns_map
 from .forms import AccountColumnsMapForm, AccountsForm
+from . import database
 
 bp = Blueprint('asset', __name__)
+
+def asset_insert(_form):
+    _account = accounts(account_name = _form.account_name.data, has_header = _form.has_header.data)
+    database.session.add(_account)
+    database.session.commit()
+    return
+
+def asset_edit(_form, _account):
+    _form.populate_obj(_account)
+    database.session.commit()
+    return
+
+def assetcolumnsmap_insert(form, _account):
+    _model = account_columns_map(
+        account = _account,
+        seq = form.seq.data,
+        src_column_name = form.src_column_name.data,
+        des_column_name = form.des_column_name.data,
+        is_drop = form.is_drop.data,
+        format = form.format.data,
+        custom = form.custom.data,
+        custom_formula = form.custom_formula.data,
+    )
+    database.session.add(_model)
+    database.session.commit()
+    return
+
+def assetcolumnsmap_edit(_form, _model):
+    _form.populate_obj(_model)
+    database.session.commit()
+    return
 
 @bp.route('/api/asset/assetsdata', methods=['GET','POST','PUT','DELETE'])
 def assetsdata():
      match request.method: 
         case 'GET':
             _id = request.args.get('id', None)
-            sql_stmt = ''
             if _id is None:
-                sql_stmt = 'SELECT * FROM accounts'
+                _accounts = accounts.query.all()
+                return {"data": [x.to_dict(show=['account_name','has_header']) for x in _accounts]}, 200
             else:
-                sql_stmt = f'SELECT * FROM accounts a where a.id = {_id}'
-            df = pd.read_sql(sql_stmt, get_db())
-            _json = df.to_json(orient='records')
-            _json_obj = json.loads(_json)
-            return {'data': _json_obj}, 200
+                _accounts = accounts.query.filter_by(id=_id).first()
+                return _accounts.to_dict(show=['account_name','has_header']), 200
         case 'POST':
             _account_name = request.form['account_name']
             _has_header = request.form['has_header']
-            sql_stmt = f'INSERT INTO accounts (account_name, has_header) VALUES ("{_account_name}",{_has_header});'
-
-            db = get_db()
-
-            db.execute(sql_stmt)
-            db.commit()
-            content = {'message':f'Insert record (account_name:"{_account_name}",has_header:{_has_header})'}
+            _form = AccountsForm(request.form)
+            if _form.validate():
+                asset_insert(_form)
+            else:
+                return jsonify(_form.errors), 400
+            
+            content = jsonify({'message':f'Insert record (account_name:"{_account_name}",has_header:{_has_header})'})
+        
             return content, 201
         case 'PUT':
             _id = request.args.get('id','')
             if _id == '':
-                return {'message':'Query parameter (ID) must be specified.'}, 400
+                return jsonify({'message':'Query parameter (ID) must be specified.'}), 400
             
-            select_stmt = f'SELECT * FROM accounts where id = {_id}'
-            df = pd.read_sql(select_stmt, get_db())
-            if df.empty:
-                return {'message':f'Provided ID {_id} not exists.'}, 400
+            _account = accounts.query.get(_id)
+            if _account is None:
+                return jsonify({'message':f'Provided ID {_id} not exists.'}), 400
             
             _account_name = request.form['account_name']
             _has_header = request.form['has_header']
-            sql_stmt = f'UPDATE accounts SET account_name = "{_account_name}", has_header={_has_header} where id = {_id};'
-            db = get_db()
-            db.execute(sql_stmt)
-            db.commit()
+            _form = AccountsForm(request.form)
+            if _form.validate():
+                asset_edit(_form, _account)
+            else:
+                return jsonify(_form.errors), 400
             content = {'message':f'Update record (account_name:"{_account_name}",has_header:{_has_header}, id: {_id})'}
             return content, 201
         case 'DELETE':
@@ -65,33 +96,29 @@ def assetsdata():
             else:
                 pass
             
-            select_stmt = f'SELECT * FROM accounts where id = {_id}'
-            df = pd.read_sql(select_stmt, get_db())
-            if df.empty:
-                return {'message':'No content'}, 400
-            sql_stmt = f'DELETE FROM accounts where id = {_id};'
-            db = get_db()
-            db.execute(sql_stmt)
-            db.commit()
-            content = {'message':f'Delete record (account_name:{df.account_name},has_header:{df.has_header}, id: {_id})'}
+            _account = accounts.query.get(_id)
+            database.session.delete(_account)
+            database.session.commit()
+            content = {'message':f'Delete record (account_name:{_account.account_name},has_header:{_account.has_header}, id: {_id})'}
             return content, 201
 
 # @bp.route('/api/asset/assetcolumnsmap', defaults={'account_id':None}, methods=['DELETE'])
 @bp.route('/api/asset/assetcolumnsmap/<string:account_id>', methods=['GET','POST','PUT', 'DELETE'])
 def assetcolumnsmap(account_id):
+    _account = accounts.query.get(account_id)
+    if _account is None:
+        return jsonify({'message':'Account ID is incorrect.'}), 400
+    
+    show = ['seq','src_column_name','des_column_name','is_drop','format','custom','custom_formula']
     match request.method: 
         case 'GET':
             _id = request.args.get('id', None)
-            sql_stmt = ''
             if _id is None:
-                sql_stmt = f'SELECT * FROM account_columns_map m where m.account_id = {account_id}'
+                _accountColsMap = account_columns_map.query.filter_by(account_id=account_id).all()
+                return {"data": [x.to_dict(show=show) for x in _accountColsMap]}, 200
             else:
-                sql_stmt = f'SELECT * FROM account_columns_map m where m.account_id = {account_id} and m.id = {_id}'
-
-            df = pd.read_sql(sql_stmt, get_db())
-            _json = df.to_json(orient='records')
-            _json_obj = json.loads(_json)
-            return {'data': _json_obj}, 200
+                _accountColsMap = account_columns_map.query.filter_by(account_id=account_id, id=_id).first()
+                return _accountColsMap.to_dict(show=show), 200
         case 'POST':
             _src_column_name = request.form['src_column_name']
             _des_column_name = request.form['des_column_name']
@@ -100,23 +127,20 @@ def assetcolumnsmap(account_id):
             _custom = request.form['custom']
             _custom_formula = request.form['custom_formula']
 
-            sql_stmt = f'INSERT INTO account_columns_map (account_id, src_column_name, des_column_name, is_drop, format, custom, custom_formula) ' + \
-            f'VALUES ({account_id},"{_src_column_name}","{_des_column_name}",{_is_drop},"{_format}",{_custom},"{_custom_formula}");'
-            print(sql_stmt)
-            db = get_db()
-
-            db.execute(sql_stmt)
-            db.commit()
-            content = {'message':f'Insert record successfully.)'}
+            _form = AccountColumnsMapForm(request.form)
+            if _form.validate():
+                assetcolumnsmap_insert(_form, _account)
+            else:
+                return jsonify(_form.errors), 400
+            content = jsonify({'message':f'Insert record successfully.)'})
             return content, 201
         case 'PUT':
             _id = request.args.get('id','')
             if _id == '':
                 return {'message':'Query parameter (ID) must be specified.'}, 400
             
-            select_stmt = f'SELECT * FROM account_columns_map m where m.account_id = {account_id} and m.id = {_id}'
-            df = pd.read_sql(select_stmt, get_db())
-            if df.empty:
+            _model = account_columns_map.query.filter_by(account_id=account_id, id=_id).first()
+            if _model is None:
                 return {'message':f'Provided ID {_id} not exists.'}, 400
             
             _src_column_name = request.form['src_column_name']
@@ -126,20 +150,14 @@ def assetcolumnsmap(account_id):
             _custom = request.form['custom']
             _custom_formula = request.form['custom_formula']
 
-            sql_stmt = f'UPDATE account_columns_map ' + \
-            f'SET account_id = {account_id}, ' + \
-            f'src_column_name="{_src_column_name}", ' + \
-            f'des_column_name="{_des_column_name}", ' + \
-            f'is_drop={_is_drop}, ' + \
-            f'format="{_format}", ' + \
-            f'custom={_custom}, ' + \
-            f'custom_formula="{_custom_formula}" ' + \
-            f'where id = {_id};'
+            _form = AccountColumnsMapForm(request.form)
 
-            db = get_db()
-            db.execute(sql_stmt)
-            db.commit()
-            content = {'message':f'Update record successfully.'}
+            if _form.validate():
+                assetcolumnsmap_edit(_form, _model)
+            else:
+                return jsonify(_form.errors), 400
+            
+            content = jsonify({'message':f'Update record successfully.'})
             return content, 201
         case 'DELETE':
             _id = request.args.get('id','')
@@ -148,16 +166,47 @@ def assetcolumnsmap(account_id):
             else:
                 pass
             
-            select_stmt = f'SELECT * FROM account_columns_map m where m.account_id = {account_id} and m.id = {_id}'
-            df = pd.read_sql(select_stmt, get_db())
-            if df.empty:
-                return {'message':'No content'}, 400
-            sql_stmt = f'DELETE FROM account_columns_map where id = {_id};'
-            db = get_db()
-            db.execute(sql_stmt)
-            db.commit()
+            _model = account_columns_map.query.filter_by(account_id=account_id, id=_id).first()
+            database.session.delete(_model)
+            database.session.commit()
             content = {'message':f'Delete record seccessfully.'}
             return content, 201
+
+@bp.route('/assetcolumnsmap_dialog/<account_id>/<id>', methods=['GET'])
+@bp.route('/assetcolumnsmap_dialog/<account_id>', methods=['GET','POST','PUT'], defaults={'id': None})
+def assetcolumnsmap_dialog(account_id, id):
+    if id is not None:
+        model = account_columns_map.query.filter_by(account_id=account_id, id=id).first()
+        formid = 'assetcolumnsmap_edit_dialog'
+        form = AccountColumnsMapForm(obj=model)
+    else:
+        formid = 'assetcolumnsmap_create_dialog'
+        form = AccountColumnsMapForm(account_id=account_id) 
+    if request.method == 'POST':
+        if form.validate():
+            assetcolumnsmap_insert(form)
+            return {'message':'Insert successful.'}, 201
+        return jsonify(form.errors), 400
+        
+    return render_template('asset/assetcolumnsmap_dialog.html', formid=formid, form=form), 200
+
+@bp.route('/asset_dialog/<id>', methods=['GET'])
+@bp.route('/asset_dialog', methods=['GET','POST','PUT'], defaults={'id': None})
+def asset_dialog(id):
+    if id is not None:
+        model = accounts.query.get(id)
+        formid = 'asset_edit_dialog'
+        form = AccountsForm(obj=model)
+    else:
+        formid = 'asset_create_dialog'
+        form = AccountsForm() 
+    if request.method == 'POST':
+        if form.validate():
+            asset_insert(form)
+            return {'message':'Insert successful.'}, 201
+        return jsonify(form.errors), 400
+        
+    return render_template('asset/asset_dialog.html', formid=formid, form=form), 200
 
 # @bp.route('/asset', defaults={'message':None})
 # @bp.route('/asset/<string:message>')

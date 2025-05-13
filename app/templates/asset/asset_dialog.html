@@ -1,0 +1,13 @@
+<form method="post" id="{{formid}}">
+    {{ form.csrf_token }}
+    <div class="form-group">
+        {{ form.account_name.label (class="form-label")}}
+        {{ form.account_name(size=100, class="form-control")}}
+        <div id="account_name-error" class="invalid-feedback"></div>
+    </div>
+
+    <div class="custom-control custom-switch">
+        {{ form.has_header(class="custom-control-input") }} {{ form.has_header.label(class="custom-control-label") }}
+        <div id="has_header-error" class="invalid-feedback"></div>
+    </div>
+</form>

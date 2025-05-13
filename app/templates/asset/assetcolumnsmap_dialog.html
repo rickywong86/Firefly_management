@@ -1,0 +1,43 @@
+<form method="post" id="{{formid}}">
+    {{ form.csrf_token }}
+
+    <div class="form-group">
+        {{ form.seq.label (class="form-label")}}
+        {{ form.seq(size=20, class="form-control")}}
+        <div id="seq-error" class="invalid-feedback"></div>
+    </div>
+
+    <div class="form-group">
+        {{ form.src_column_name.label (class="form-label")}}
+        {{ form.src_column_name(size=20, class="form-control")}}
+        <div id="src_column_name-error" class="invalid-feedback"></div>
+    </div>
+
+    <div class="form-group">
+        {{ form.des_column_name.label (class="form-label")}}
+        {{ form.des_column_name(size=20, class="form-control")}}
+        <div id="des_column_name-error" class="invalid-feedback"></div>
+    </div>
+
+    <div class="custom-control custom-switch">
+        {{ form.is_drop(class="custom-control-input") }} {{ form.is_drop.label(class="custom-control-label") }}
+        <div id="is_drop-error" class="invalid-feedback"></div>
+    </div>
+
+    <div class="form-group">
+        {{ form.format.label (class="form-label")}}
+        {{ form.format(size=20, class="form-control")}}
+        <div id="format-error" class="invalid-feedback"></div>
+    </div>
+
+    <div class="custom-control custom-switch">
+        {{ form.custom(class="custom-control-input") }} {{ form.custom.label(class="custom-control-label") }}
+        <div id="custom-error" class="invalid-feedback"></div>
+    </div>
+
+    <div class="form-group">
+        {{ form.custom_formula.label (class="form-label")}}
+        {{ form.custom_formula(size=20, class="form-control")}}
+        <div id="custom_formula-error" class="invalid-feedback"></div>
+    </div>
+</form>

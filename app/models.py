@@ -163,7 +163,7 @@ class accounts(BaseModel):
     id = database.Column(database.Integer, primary_key=True)
     account_name = database.Column(database.String(100), default='', info={'label':'Account name'}) 
     has_header = database.Column(database.Boolean, default=False, info={'label':'Has header'})
-
+    columns = database.relationship('account_columns_map', backref='account')
 
 class account_columns_map(BaseModel):
     __tablename__ = 'account_columns_map'
@@ -176,8 +176,6 @@ class account_columns_map(BaseModel):
     format = database.Column(database.String(100), default='') 
     custom = database.Column(database.Boolean, default=False)
     custom_formula = database.Column(database.String(100), default='') 
-
-    account = relationship('accounts', foreign_keys='account_columns_map.account_id')
 
 class User(BaseModel):
     id = database.Column(database.Integer, primary_key=True)

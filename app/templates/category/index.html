@@ -58,11 +58,13 @@
 {% endblock %}
 
 {% block custom_script %}
+<script src="{{ url_for('static', filename='custom.js') }}"></script>
 <script>
     var _table;
     var _id;
 
-    let edit_func = async (api, datatable, method) => {
+    $(document).on('submit', '#create_dialog', async (e) => {
+        e.preventDefault();
         const fields = {
             csrf_token: {
                 input: document.getElementById("csrf_token"),
@@ -81,43 +83,30 @@
                 error: document.getElementById("destinationAcc-error"),
             }
         };
-
-        let formData = new FormData();
-
-        formData.append('csrf_token', fields.csrf_token.input.value);
-        formData.append('key', fields.key.input.value);
-        formData.append('category', fields.category.input.value);
-        formData.append('destinationAcc', fields.destinationAcc.input.value);
-
-        const response = await fetch(api, {
-            method: method,
-            body: formData,
-        })
-
-        if (response.ok) {
-            dlg.close();
-            await response.json().then((data) => {
-                $.alert(data.message);
-            })
-            datatable.ajax.reload(null, false);
-            $('#table').trigger('deselect');
-        } else {
-            const errors = await response.json();
-            Object.keys(errors).forEach((key) => {
-                fields[key].input.classList.add('is-invalid');
-                fields[key].error.innerHTML = errors[key][0];
-            });
-        }
-    }
-
-    $(document).on('submit', '#create_dialog', async (e) => {
-        e.preventDefault();
-        edit_func('/api/category', $('#table').DataTable(), 'POST');
+        edit_func('/api/category', $('#table').DataTable(), 'POST', fields);
     });
 
     $(document).on('submit', '#edit_dialog', async (e) => {
         e.preventDefault();
-        edit_func('/api/category?id=' + _id, $('#table').DataTable(), 'PUT');
+        const fields = {
+            csrf_token: {
+                input: document.getElementById("csrf_token"),
+                error: document.getElementById("csrf_token-error"),
+            },
+            key: {
+                input: document.getElementById("key"),
+                error: document.getElementById("key-error"),
+            },
+            category: {
+                input: document.getElementById("category"),
+                error: document.getElementById("category-error"),
+            },
+            destinationAcc: {
+                input: document.getElementById("destinationAcc"),
+                error: document.getElementById("destinationAcc-error"),
+            }
+        };
+        edit_func('/api/category?id=' + _id, $('#table').DataTable(), 'PUT', fields);
     });
 
     $(document).ready(function () {
