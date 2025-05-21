@@ -52,13 +52,6 @@ def create_app(test_config=None):
     from . import asset
     app.register_blueprint(asset.bp)
 
-    from . import users
-    app.register_blueprint(users.bp)
-
-    # from . import blog
-    # app.register_blueprint(blog.bp)
-    # app.add_url_rule('/', endpoint='index')
-
     Bootstrap4(app)
 
     return app
