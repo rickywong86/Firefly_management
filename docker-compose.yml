@@ -1,0 +1,9 @@
+version: "3.9"
+
+services:
+  flask:
+    build: .
+    container_name: firefly-management-app
+    pull_policy: build
+    ports:
+      - "${APP_PORT}:${FLASK_PORT}"
