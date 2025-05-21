@@ -10,4 +10,4 @@ RUN pip install -r requirements.txt
 
 RUN chmod +x start.sh
 
-CMD ["./start.sh", FLASK_PORT]
+CMD ["./start.sh"]
