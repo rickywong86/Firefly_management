@@ -6,3 +6,24 @@
 .table-clickable {
     cursor: pointer;
 }
+
+/* CSS for the highlight effect */
+@keyframes fade-highlight {
+    from {
+        background-color: #d1e7dd;
+    }
+
+    to {
+        background-color: transparent;
+    }
+}
+
+.highlight {
+    animation: fade-highlight 5s ease-in-out;
+}
+
+/* Centering the pagination controls */
+.pagination-container {
+    display: flex;
+    justify-content: center;
+}
