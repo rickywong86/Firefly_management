@@ -1,540 +1,558 @@
 {% extends 'base.html' %}
-
 {% block header %}
-<h1>{% block title %}Asset{% endblock %}</h1>
+
+
 
 {% endblock %}
+{% block custom_style %}
+<style>
 
+</style>
+{% endblock %}
 {% block content %}
-<section>
-    {% if message is not none %}
-    <div class="alert alert-success" role="alert">
-        {{ message }}
+<div class="container mt-5">
+    <h1>{% block title %}Asset{% endblock %}</h1>
+    <div class="d-flex justify-content-between mb-3">
+        <!-- Search Bar and Per Page Dropdown -->
+        <div class="d-flex">
+            <form action="{{ url_for('asset.index') }}" method="GET" class="d-flex me-3">
+                <input type="hidden" name="per_page" value="{{ per_page }}">
+                <input type="text" class="form-control me-2" name="search" placeholder="Search by Account Name"
+                    value="{{ search_query }}">
+                <button type="submit" class="btn btn-outline-primary">Search</button>
+            </form>
+
+            <form action="{{ url_for('asset.index') }}" method="GET" class="d-flex">
+                <input type="hidden" name="search" value="{{ search_query }}">
+                <select name="per_page" class="form-select" onchange="this.form.submit()">
+                    <option value="5" {% if per_page==5 %}selected{% endif %}>5 per page</option>
+                    <option value="10" {% if per_page==10 %}selected{% endif %}>10 per page</option>
+                    <option value="15" {% if per_page==15 %}selected{% endif %}>15 per page</option>
+                    <option value="20" {% if per_page==20 %}selected{% endif %}>20 per page</option>
+                    <option value="25" {% if per_page==25 %}selected{% endif %}>25 per page</option>
+                    <option value="30" {% if per_page==30 %}selected{% endif %}>30 per page</option>
+                </select>
+            </form>
+        </div>
+
+        <!-- Create Button to open the Asset modal -->
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assetModal" data-mode="create">
+            Create Asset
+        </button>
     </div>
-    {% endif %}
-</section>
-<section class="text-left">
-    <!-- <table id="table"></table> -->
-    <table id="table" class="display" cellspacing="0">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Has header</th>
-            </tr>
-        </thead>
-        <tfoot>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Has header</th>
-            </tr>
-        </tfoot>
-    </table>
-</section>
 
-<section class="text-left">
-    <!-- <table id="table"></table> -->
-    <table id="line" class="display" cellspacing="0">
-        <thead>
-            <tr>
-                <th>Sequence</th>
-                <th>From</th>
-                <th>To</th>
-                <th>Drop</th>
-                <th>Format</th>
-                <th>Custom</th>
-                <th>Custom formula</th>
-            </tr>
-        </thead>
-        <tfoot>
-            <tr>
-                <th>Sequence</th>
-                <th>From</th>
-                <th>To</th>
-                <th>Drop</th>
-                <th>Format</th>
-                <th>Custom</th>
-                <th>Custom formula</th>
-            </tr>
-        </tfoot>
-    </table>
-</section>
+    <!-- Main Assets Table -->
+    <div class="table-responsive">
+        <table class="table table-hover table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Account Name</th>
+                    <th>Has Header</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Loop through the paginated assets -->
+                {% for asset in pagination.items %}
+                <tr id="asset-row-{{ asset.id }}"
+                    class="{% if highlight_id and highlight_id == asset.id %}highlight{% endif %}">
+                    <td>{{ asset.account_name }}</td>
+                    <td>{{ 'Yes' if asset.has_header else 'No' }}</td>
+                    <td>
+                        <!-- Manage Mappings, View, Edit, and Delete buttons for each asset -->
+                        <button class="btn btn-sm btn-primary manage-mappings-btn" data-bs-toggle="modal"
+                            data-bs-target="#mappingsModal" data-id="{{ asset.id }}">
+                            Manage Mappings
+                        </button>
+                        <button class="btn btn-sm btn-info view-btn" data-bs-toggle="modal" data-bs-target="#viewModal"
+                            data-id="{{ asset.id }}">
+                            View
+                        </button>
+                        <button class="btn btn-sm btn-info edit-btn" data-bs-toggle="modal" data-bs-target="#assetModal"
+                            data-mode="edit" data-id="{{ asset.id }}" data-account-name="{{ asset.account_name }}"
+                            data-has-header="{{ asset.has_header }}">
+                            Edit
+                        </button>
+                        <button class="btn btn-sm btn-danger delete-btn" data-bs-toggle="modal"
+                            data-bs-target="#deleteConfirmModal" data-id="{{ asset.id }}">
+                            Remove
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
+    <!-- Pagination Controls -->
+    <nav class="pagination-container" aria-label="Page navigation">
+        <ul class="pagination">
+            <!-- 'Previous' button -->
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link"
+                    href="{{ url_for('asset.index', page=pagination.prev_num, search=search_query, per_page=per_page) }}">Previous</a>
+            </li>
+            {% endif %}
+
+            <!-- Dynamic pagination links with ellipsis -->
+            {% set pages_to_show = 5 %}
+            {% set current_page = pagination.page %}
+            {% set total_pages = pagination.pages %}
+            {% set start_page = 1 %}
+            {% set end_page = total_pages %}
+
+            {% if total_pages > pages_to_show %}
+            {% set start_page = [1, current_page - (pages_to_show // 2)] | max %}
+            {% set end_page = [total_pages, start_page + pages_to_show - 1] | min %}
+            {% if end_page - start_page + 1 < pages_to_show %} {% set start_page=[1, end_page - pages_to_show + 1] | max
+                %} {% endif %} {% endif %} {% if start_page> 1 %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+
+                {% for page_num in range(start_page, end_page + 1) %}
+                <li class="page-item {% if page_num == current_page %}active{% endif %}">
+                    <a class="page-link"
+                        href="{{ url_for('asset.index', page=page_num, search=search_query, per_page=per_page) }}">{{
+                        page_num }}</a>
+                </li>
+                {% endfor %}
+
+                {% if end_page < total_pages %} <li class="page-item disabled"><span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+
+                    <!-- 'Next' button -->
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="{{ url_for('asset.index', page=pagination.next_num, search=search_query, per_page=per_page) }}">Next</a>
+                    </li>
+                    {% endif %}
+        </ul>
+    </nav>
+</div>
+
+<!-- Modals -->
+
+<!-- Asset Modal (Create/Edit) -->
+<div class="modal fade" id="assetModal" tabindex="-1" aria-labelledby="assetModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="assetForm" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="assetModalLabel">Create Asset</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="assetId">
+                    <div class="mb-3">
+                        <label for="accountName" class="form-label">Account Name</label>
+                        <input type="text" class="form-control" id="accountName" name="account_name" required>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="hasHeader" name="has_header">
+                        <label class="form-check-label" for="hasHeader">Has Header</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel"
     aria-hidden="true">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="deleteForm" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteConfirmModalLabel">Confirm Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this record?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- View Modal (Asset Details and Mappings) -->
+<div class="modal fade" id="viewModal" tabindex="-1" aria-labelledby="viewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="exampleModalLabel">Delete</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <h5 class="modal-title" id="viewModalLabel">Asset Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                Delete selected account.
-                Confirm?
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Asset Information</h6>
+                        <table class="table table-bordered table-sm">
+                            <tbody>
+                                <tr>
+                                    <th>ID</th>
+                                    <td id="viewAssetId"></td>
+                                </tr>
+                                <tr>
+                                    <th>Account Name</th>
+                                    <td id="viewAccountName"></td>
+                                </tr>
+                                <tr>
+                                    <th>Has Header</th>
+                                    <td id="viewHasHeader"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <hr>
+                <h6>Column Mappings</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Seq</th>
+                                <th>Source Column</th>
+                                <th>Destination Column</th>
+                                <th>Is Drop</th>
+                                <th>Format</th>
+                                <th>Custom</th>
+                                <th>Custom Formula</th>
+                            </tr>
+                        </thead>
+                        <tbody id="viewMappingsTableBody">
+                            <!-- Mappings will be loaded here via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" onclick="delete_action()">Delete</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
 </div>
 
-<form method="post" action="{{url_for('asset.assetsdata_delete')}}" enctype="multipart/form-data" name="theForm">
-    <input type="hidden" id="hidden_id" name="hidden_id" />
-</form>
+<!-- Manage Mappings Modal -->
+<div class="modal fade" id="mappingsModal" tabindex="-1" aria-labelledby="mappingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="mappingsModalLabel">Manage Column Mappings for Asset: <span
+                        id="mappingAssetAccountName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="mappingAssetId">
+                <h6>Add New Mapping</h6>
+                <form id="mappingForm" class="row g-3 mb-4">
+                    <div class="col-md-1">
+                        <label for="mappingSeq" class="form-label">Seq</label>
+                        <input type="number" class="form-control" id="mappingSeq" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="mappingSrcCol" class="form-label">Source Column</label>
+                        <input type="text" class="form-control" id="mappingSrcCol" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="mappingDestCol" class="form-label">Destination Column</label>
+                        <input type="text" class="form-control" id="mappingDestCol" required>
+                    </div>
+                    <div class="col-md-1">
+                        <label for="mappingIsDrop" class="form-label">Is Drop</label>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="mappingIsDrop">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="mappingFormat" class="form-label">Format</label>
+                        <input type="text" class="form-control" id="mappingFormat">
+                    </div>
+                    <div class="col-md-1">
+                        <label for="mappingCustom" class="form-label">Custom</label>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="mappingCustom">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="mappingCustomFormula" class="form-label">Custom Formula</label>
+                        <input type="text" class="form-control" id="mappingCustomFormula">
+                    </div>
+                    <div class="col-12 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success">Save Mapping</button>
+                    </div>
+                </form>
 
+                <h6>Existing Mappings</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Seq</th>
+                                <th>Source Column</th>
+                                <th>Destination Column</th>
+                                <th>Is Drop</th>
+                                <th>Format</th>
+                                <th>Custom</th>
+                                <th>Custom Formula</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mappingsTableBody">
+                            <!-- Mappings will be loaded here via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block custom_script %}
-<script src="{{ url_for('static', filename='custom.js') }}"></script>
+<!-- jQuery and Bootstrap JS -->
 <script>
-    var _table;
-    var _line;
-    var _id = 1;
-    var _map_id
-    let dlg = null;
-
-    $(document).on('submit', '#asset_create_dialog', async (e) => {
-        e.preventDefault();
-        const fields = {
-            csrf_token: {
-                input: document.getElementById("csrf_token"),
-                error: document.getElementById("csrf_token-error"),
-            },
-            account_name: {
-                input: document.getElementById("account_name"),
-                error: document.getElementById("account_name-error"),
-            },
-            has_header: {
-                input: document.getElementById("has_header"),
-                error: document.getElementById("has_header-error"),
-            },
-        };
-        edit_func('/api/asset/assetsdata', $('#table').DataTable(), 'POST', fields);
-    });
-
-    $(document).on('submit', '#asset_edit_dialog', async (e) => {
-        e.preventDefault();
-
-        const fields = {
-            csrf_token: {
-                input: document.getElementById("csrf_token"),
-                error: document.getElementById("csrf_token-error"),
-            },
-            account_name: {
-                input: document.getElementById("account_name"),
-                error: document.getElementById("account_name-error"),
-            },
-            has_header: {
-                input: document.getElementById("has_header"),
-                error: document.getElementById("has_header-error"),
-            },
-        };
-        edit_func('/api/asset/assetsdata?id=' + _id, $('#table').DataTable(), 'PUT', fields);
-    });
-
-    $(document).on('submit', '#assetcolumnsmap_create_dialog', async (e) => {
-        e.preventDefault();
-        const fields = {
-            csrf_token: {
-                input: document.getElementById("csrf_token"),
-                error: document.getElementById("csrf_token-error"),
-            },
-            seq: {
-                input: document.getElementById("seq"),
-                error: document.getElementById("seq-error"),
-            },
-            src_column_name: {
-                input: document.getElementById("src_column_name"),
-                error: document.getElementById("src_column_name-error"),
-            },
-            des_column_name: {
-                input: document.getElementById("des_column_name"),
-                error: document.getElementById("des_column_name-error"),
-            },
-            is_drop: {
-                input: document.getElementById("is_drop"),
-                error: document.getElementById("is_drop-error"),
-            },
-            format: {
-                input: document.getElementById("format"),
-                error: document.getElementById("format-error"),
-            },
-            custom: {
-                input: document.getElementById("custom"),
-                error: document.getElementById("custom-error"),
-            },
-            custom_formula: {
-                input: document.getElementById("custom_formula"),
-                error: document.getElementById("custom_formula-error"),
-            },
-        };
-        edit_func('/api/asset/assetcolumnsmap/' + _id, $('#line').DataTable(), 'POST', fields);
-    });
-
-
     $(document).ready(function () {
-        _table = $('#table').
-            on('init.dt', function () {
-                console.log('Loaded.');
-                $("#table>tbody>tr:first").trigger('click');
-            }).DataTable({
-                'ajax': {
-                    "type": "GET",
-                    "url": '/api/asset/assetsdata',
-                },
-                columnDefs: [
-                    {
-                        target: 0,
-                        visible: false,
-                        searchable: false
-                    },
-                    {
-                        target: 2,
-                        "className": "text-center",
-                    }
-                ],
-                "columns": [
-                    { "data": "id" },
-                    { "data": "account_name" },
-                    {
-                        "data": "has_header",
-                        "render": function (data) {
-                            let _ischecked = '';
-                            if (data == true) {
-                                _ischecked = 'checked';
-                            }
-                            return `<div class="custom-control custom-switch">
-                            <input class="custom-control-input" type="checkbox" ${_ischecked} >
-                            <label class="custom-control-label"></label>
-                        </div>`
-                        },
-                    }
-                ],
-                layout: {
-                    topStart: {
-                        buttons: [
-                            {
-                                text: 'Create',
-                                action: function (e) {
-                                    e.stopPropagation();
-                                    dlg = $.confirm({
-                                        title: 'Create',
-                                        content: function (e) {
-                                            var tmp = null;
-                                            $.get({
-                                                async: false,
-                                                url: '/asset_dialog',
-                                                statusCode: {
-                                                    200: function (data) {
-                                                        tmp = data;
-                                                    }
-                                                }
-                                            })
-                                            return tmp;
-                                        },
-                                        buttons: {
-                                            OK: {
-                                                text: 'OK',
-                                                btnClass: 'btn btn-primary',
-                                                action: function () {
-                                                    $('#asset_create_dialog').submit();
-                                                    return false;
-                                                }
-                                            },
-                                            Cancel: {
-                                                text: 'Cancel',
-                                                btnClass: 'btn btn-danger'
-                                            }
-                                        }
-                                    })
-                                }
-                            },
-                            {
-                                text: 'Edit',
-                                action: function (e) {
-                                    e.stopPropagation();
-                                    let _d = _table.rows({ selected: true }).data();
-                                    _id = _d[0].id;
-                                    dlg = $.confirm({
-                                        title: 'Edit',
-                                        content: function (e) {
-                                            var tmp = null;
-                                            $.get({
-                                                async: false,
-                                                url: '/asset_dialog/' + _id,
-                                                statusCode: {
-                                                    200: function (data) {
-                                                        tmp = data;
-                                                    }
-                                                }
-                                            })
-                                            return tmp;
-                                        },
-                                        buttons: {
-                                            OK: {
-                                                text: 'OK',
-                                                btnClass: 'btn btn-primary',
-                                                action: function () {
-                                                    $('#asset_edit_dialog').submit();
-                                                    return false;
-                                                }
-                                            },
-                                            Cancel: {
-                                                text: 'Cancel',
-                                                btnClass: 'btn btn-danger'
-                                            }
-                                        }
-                                    })
-                                },
-                                enabled: false,
-                            },
-                            {
-                                text: 'Delete',
-                                action: function (e) {
-                                    e.stopPropagation();
-                                    let _d1 = _table.rows({ selected: true }).data();
-                                    let _id = _d1[0].id;
-                                    $.confirm({
-                                        title: 'Confirm',
-                                        content: 'Delete the selected record?',
-                                        buttons: {
-                                            confirm: function () {
-                                                let _url = `{{url_for('asset.assetsdata', id='var_1')}}`.replace('var_1', _id);
-                                                let _payload = {
-                                                    'id': _id,
-                                                }
-                                                $.ajax({
-                                                    url: _url,
-                                                    type: 'DELETE',
-                                                    statusCode: {
-                                                        201: function (result) {
-                                                            $.alert(result.message);
-                                                            $('#table').DataTable().ajax.reload(null, false);
-                                                        }
-                                                    }
-                                                });
-                                            },
-                                            cancel: function () {
-                                                return true;
-                                            },
-                                        }
-                                    });
-                                },
-                                enabled: false,
-                            }
-                        ]
-                    }
-                },
-                select: true,
-            })
-
-        _line = $('#line').DataTable({
-            'ajax': {
-                "type": "GET",
-                "url": '/api/asset/assetcolumnsmap/' + _id,
-            },
-            columnDefs: [
-                {
-                    target: 2,
-                    "className": "text-center",
-                },
-                {
-                    target: 4,
-                    "className": "text-center",
-                }
-            ],
-            "columns": [
-                { "data": "seq" },
-                { "data": "src_column_name" },
-                { "data": "des_column_name" },
-                {
-                    "data": "is_drop",
-                    "render": function (data) {
-                        let _ischecked = '';
-                        if (data == true) {
-                            _ischecked = 'checked';
-                        }
-                        return `<div class="custom-control custom-switch">
-                            <input class="custom-control-input" type="checkbox" ${_ischecked}>
-                            <label class="custom-control-label"></label>
-                        </div>`
-                    }
-                },
-                { "data": "format" },
-                {
-                    "data": "custom", "render": function (data) {
-                        let _ischecked = '';
-                        if (data == true) {
-                            _ischecked = 'checked';
-                        }
-                        return `<div class="custom-control custom-switch">
-                            <input class="custom-control-input" type="checkbox" ${_ischecked}>
-                            <label class="custom-control-label"></label>
-                        </div>`
-                    }
-                },
-                { "data": "custom_formula" },
-            ],
-            select: true,
-            layout: {
-                topStart: {
-                    buttons: [
-                        {
-                            text: 'Create',
-                            action: function (e) {
-                                e.stopPropagation();
-                                dlg = $.confirm({
-                                    title: 'Create',
-                                    content: function (e) {
-                                        let _d = _table.rows({ selected: true }).data();
-                                        _id = _d[0].id;
-                                        var tmp = null;
-                                        $.get({
-                                            async: false,
-                                            url: '/assetcolumnsmap_dialog/' + _id,
-                                            statusCode: {
-                                                200: function (data) {
-                                                    tmp = data;
-                                                }
-                                            }
-                                        })
-                                        return tmp;
-                                    },
-                                    buttons: {
-                                        OK: {
-                                            text: 'OK',
-                                            btnClass: 'btn btn-primary',
-                                            action: function () {
-                                                let _d = _table.rows({ selected: true }).data();
-                                                _id = _d[0].id;
-                                                $('#assetcolumnsmap_create_dialog').submit();
-                                                return false;
-                                            }
-                                        },
-                                        Cancel: {
-                                            text: 'Cancel',
-                                            btnClass: 'btn btn-danger'
-                                        }
-                                    }
-                                })
-                            },
-                            enabled: false,
-                        },
-                        {
-                            text: 'Edit',
-                            action: function () {
-                                let _d = _table.rows({ selected: true }).data();
-                                let _id = _d[0].id;
-                                let _d_map = _line.rows({ selected: true }).data();
-                                let _map_id = _d_map[0].id;
-
-                                let _url = `{{url_for('asset.assetcolumnsmap_update',account_id='var_1',id='var_2')}}`.replace('var_1', _id).replace('var_2', _map_id);
-                                window.location.href = _url;
-                            },
-                            enabled: false,
-                        },
-                        {
-                            text: 'Delete',
-                            action: function (e) {
-                                e.stopPropagation();
-                                let _d1 = _table.rows({ selected: true }).data();
-                                let _account_id = _d1[0].id;
-                                let _d2 = _line.rows({ selected: true }).data();
-                                let _id = _d2[0].id;
-                                $.confirm({
-                                    title: 'Confirm!',
-                                    content: 'Simple confirm!',
-                                    buttons: {
-                                        confirm: function () {
-                                            let _url = `{{url_for('asset.assetcolumnsmap', account_id='var_1', id='var_2')}}`.replace('var_1', _account_id).replace('var_2', _id);
-                                            let _payload = {
-                                                'id': _id,
-                                            }
-                                            $.ajax({
-                                                url: _url,
-                                                type: 'DELETE',
-                                                statusCode: {
-                                                    201: function (result) {
-                                                        $.alert(result.message);
-                                                        $('#line').DataTable().ajax.reload();
-                                                    }
-                                                }
-                                            });
-                                        },
-                                        cancel: function () {
-                                            $.alert('Canceled!');
-                                        },
-                                        somethingElse: {
-                                            text: 'Something else',
-                                            btnClass: 'btn-blue',
-                                            keys: ['enter', 'shift'],
-                                            action: function () {
-                                                $.alert('Something else?');
-                                            }
-                                        }
-                                    }
-                                });
-                            },
-                            enabled: false,
-                        }
-                    ]
-                }
+        // Function to highlight a row with a fading effect
+        const highlightRow = (id) => {
+            const row = $(`#asset-row-${id}`);
+            if (row.length) {
+                row.addClass('highlight');
+                setTimeout(() => {
+                    row.removeClass('highlight');
+                }, 5000); // Remove highlight class after 5 seconds
             }
-        })
+        };
 
+        // Check for a highlight ID in the URL and apply the highlight.
+        const urlParams = new URLSearchParams(window.location.search);
+        const highlightId = urlParams.get('highlight_id');
+        if (highlightId) {
+            highlightRow(highlightId);
+        }
 
-        // $('th').addClass('text-left');
-        // var json = `{{ headers | safe }}`
-        // console.log(json);
-        // $('#table').DataTable({
-        //     // 'data': JSON.parse('{{ headers | safe }}'),
-        //     // "columns": [
-        //     //     { "data": "Description" },
-        //     //     { "data": "Action" }
-        //     // ]
-        //     "data": JSON.parse(json),
-        //     "columns": [
-        //         { "data": "Description" },
-        //         { "data": "Action" }
-        //     ]
-        // });
-        // $('#table_map').DataTable();
+        // Asset Modal Logic (Create/Edit)
+        $('#assetModal').on('show.bs.modal', function (event) {
+            const button = $(event.relatedTarget);
+            const mode = button.data('mode');
+            const modal = $(this);
 
-        _table.on('select deselect', function () {
-            var selectedRows = _table.rows({ selected: true }).count();
+            // Set modal content based on 'create' or 'edit' mode.
+            if (mode === 'create') {
+                modal.find('.modal-title').text('Create Asset');
+                modal.find('#assetForm').attr('action', "{{ url_for('asset.create_asset') }}");
+                modal.find('#accountName').val('');
+                modal.find('#hasHeader').prop('checked', false);
+            } else if (mode === 'edit') {
+                const id = button.data('id');
+                const accountName = button.data('account-name');
+                const hasHeader = button.data('has-header');
 
-            _table.button(1).enable(selectedRows === 1);
-            _table.button(2).enable(selectedRows === 1);
-            _line.button(0).enable(selectedRows === 1);
+                modal.find('.modal-title').text('Edit Asset');
+                modal.find('#assetForm').attr('action', `/asset/${id}/update`);
+                modal.find('#accountName').val(accountName);
+                modal.find('#hasHeader').prop('checked', hasHeader);
+            }
         });
 
-        _line.on('select deselect', function () {
-            var is_table_selected = _table.rows({ selected: true }).count() > 0;
-            var selectedRows = _line.rows({ selected: true }).count();
-            _line.button(1).enable(is_table_selected && selectedRows === 1);
-            _line.button(2).enable(is_table_selected && selectedRows === 1);
-        })
-    })
+        // Asset Delete Confirmation Modal Logic
+        $('#deleteConfirmModal').on('show.bs.modal', function (event) {
+            const button = $(event.relatedTarget);
+            const id = button.data('id');
+            const modal = $(this);
+            modal.find('#deleteForm').attr('action', `/asset/${id}/delete`);
+        });
 
-    function delete_modal_show(id, desc) {
-        $('#desc_text').html(desc);
-        $('#hidden_id').val(id);
-        $('#deleteModal').modal('toggle');
-    }
+        // View Modal Logic
+        $('#viewModal').on('show.bs.modal', function (event) {
+            const button = $(event.relatedTarget);
+            const assetId = button.data('id');
+            const modal = $(this);
 
-    function delete_action() {
-        document.theForm.submit();
-    }
+            // Fetch data from the new endpoint
+            $.get(`/asset/${assetId}/details`, function (data) {
+                // Populate asset details
+                modal.find('#viewAssetId').text(data.id);
+                modal.find('#viewAccountName').text(data.account_name);
+                modal.find('#viewHasHeader').text(data.has_header ? 'Yes' : 'No');
 
-    $(document).on('click', '#table tr', function () {
-        let data = _table.row(this).data();
-        _id = data.id;
-        $('#line').DataTable().ajax.url('/api/asset/assetcolumnsmap/' + _id).load();
-    })
+                // Populate mappings table
+                const tableBody = modal.find('#viewMappingsTableBody');
+                tableBody.empty(); // Clear existing rows
+                if (data.mappings.length > 0) {
+                    data.mappings.forEach(mapping => {
+                        const row = `
+                            <tr>
+                                <td>${mapping.seq}</td>
+                                <td>${mapping.src_column_name}</td>
+                                <td>${mapping.des_column_name}</td>
+                                <td>${mapping.is_drop ? 'Yes' : 'No'}</td>
+                                <td>${mapping.format}</td>
+                                <td>${mapping.custom ? 'Yes' : 'No'}</td>
+                                <td>${mapping.custom_formula}</td>
+                            </tr>
+                        `;
+                        tableBody.append(row);
+                    });
+                } else {
+                    tableBody.append('<tr><td colspan="7" class="text-center">No column mappings found.</td></tr>');
+                }
+            });
+        });
+
+        // Function to fetch and render the mappings table for a given asset ID
+        const fetchAndRenderMappings = (assetId, tableBodyElement) => {
+            $.get(`/asset/${assetId}/details`, function (data) {
+                tableBodyElement.empty();
+                $('#mappingAssetAccountName').text(data.account_name);
+                if (data.mappings.length > 0) {
+                    data.mappings.forEach(mapping => {
+                        const row = `
+                            <tr>
+                                <td>${mapping.seq}</td>
+                                <td>${mapping.src_column_name}</td>
+                                <td>${mapping.des_column_name}</td>
+                                <td>${mapping.is_drop ? 'Yes' : 'No'}</td>
+                                <td>${mapping.format}</td>
+                                <td>${mapping.custom ? 'Yes' : 'No'}</td>
+                                <td>${mapping.custom_formula}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning edit-mapping-btn" data-id="${mapping.id}" data-seq="${mapping.seq}" data-src="${mapping.src_column_name}" data-des="${mapping.des_column_name}" data-isdrop="${mapping.is_drop}" data-format="${mapping.format}" data-custom="${mapping.custom}" data-formula="${mapping.custom_formula}">Edit</button>
+                                    <button class="btn btn-sm btn-danger delete-mapping-btn" data-id="${mapping.id}">Delete</button>
+                                </td>
+                            </tr>
+                        `;
+                        tableBodyElement.append(row);
+                    });
+                } else {
+                    tableBodyElement.append('<tr><td colspan="8" class="text-center">No column mappings found.</td></tr>');
+                }
+            }).fail(function (jqXHR, textStatus, errorThrown) {
+                alert('Error fetching mappings: ' + errorThrown);
+                console.error('Error fetching mappings:', textStatus, errorThrown);
+            });
+        };
+
+        // Manage Mappings Modal Logic
+        $('#mappingsModal').on('show.bs.modal', function (event) {
+            const button = $(event.relatedTarget);
+            const assetId = button.data('id');
+            const modal = $(this);
+
+            // Reset the form and set the asset ID
+            const form = modal.find('#mappingForm');
+            form[0].reset();
+            form.find('button[type="submit"]').text('Save Mapping');
+            form.attr('data-mode', 'create').removeAttr('data-mapping-id');
+            modal.find('#mappingAssetId').val(assetId);
+
+            // Fetch and render mappings for the selected asset
+            fetchAndRenderMappings(assetId, modal.find('#mappingsTableBody'));
+        });
+
+        // Handle edit mapping button click inside the mappings modal
+        $(document).on('click', '.edit-mapping-btn', function () {
+            const button = $(this);
+            // Populate the form with the mapping data for editing
+            $('#mappingSeq').val(button.data('seq'));
+            $('#mappingSrcCol').val(button.data('src'));
+            $('#mappingDestCol').val(button.data('des'));
+            $('#mappingIsDrop').prop('checked', button.data('isdrop'));
+            $('#mappingFormat').val(button.data('format'));
+            $('#mappingCustom').prop('checked', button.data('custom'));
+            $('#mappingCustomFormula').val(button.data('formula'));
+
+            // Change the form state to 'edit'
+            const mappingId = button.data('id');
+            $('#mappingForm').attr('data-mode', 'edit').attr('data-mapping-id', mappingId);
+            $('#mappingForm button[type="submit"]').text('Update Mapping');
+        });
+
+        // Handle delete mapping button click inside the mappings modal
+        $(document).on('click', '.delete-mapping-btn', function () {
+            const mappingId = $(this).data('id');
+            const assetId = $('#mappingAssetId').val();
+
+            if (confirm('Are you sure you want to delete this mapping?')) {
+                $.ajax({
+                    url: `/asset/${assetId}/mappings/${mappingId}/delete`,
+                    type: 'DELETE',
+                    success: function (response) {
+                        alert(response.message);
+                        fetchAndRenderMappings(assetId, $('#mappingsTableBody')); // Refresh the table
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        alert('Error deleting mapping: ' + errorThrown);
+                        console.error('Error deleting mapping:', textStatus, errorThrown);
+                    }
+                });
+            }
+        });
+
+        // Handle mapping form submission (add/update)
+        $('#mappingForm').on('submit', function (e) {
+            e.preventDefault();
+
+            const form = $(this);
+            const assetId = $('#mappingAssetId').val();
+            const mode = form.attr('data-mode');
+            const mappingId = form.attr('data-mapping-id');
+
+            let url = '';
+            let method = '';
+
+            if (mode === 'create') {
+                url = `/asset/${assetId}/mappings/create`;
+                method = 'POST';
+            } else if (mode === 'edit') {
+                url = `/asset/${assetId}/mappings/${mappingId}/update`;
+                method = 'PUT';
+            }
+
+            // Collect form data
+            const formData = {
+                seq: $('#mappingSeq').val(),
+                src_column_name: $('#mappingSrcCol').val(),
+                des_column_name: $('#mappingDestCol').val(),
+                is_drop: $('#mappingIsDrop').is(':checked'),
+                format: $('#mappingFormat').val(),
+                custom: $('#mappingCustom').is(':checked'),
+                custom_formula: $('#mappingCustomFormula').val()
+            };
+
+            $.ajax({
+                url: url,
+                type: method,
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                success: function (response) {
+                    alert(response.message);
+                    form[0].reset(); // Reset form fields
+                    form.attr('data-mode', 'create').removeAttr('data-mapping-id'); // Revert to create mode
+                    form.find('button[type="submit"]').text('Save Mapping');
+                    fetchAndRenderMappings(assetId, $('#mappingsTableBody')); // Refresh the table
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    alert('Error saving mapping: ' + errorThrown);
+                    console.error('Error saving mapping:', textStatus, errorThrown);
+                }
+            });
+        });
+
+    });
 </script>
 {% endblock %}

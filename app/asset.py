@@ -1,336 +1,156 @@
-from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, sessions, session, jsonify
-)
+# project/routes.py
+# This file defines all the web routes for the application.
 
-from werkzeug.exceptions import abort
-
-from app.db import get_db
-
-import pandas as pd
-import json
-import requests
-from io import StringIO
-
-from .models import accounts, account_columns_map
-from .forms import AccountColumnsMapForm, AccountsForm
+from flask import render_template, request, redirect, url_for, jsonify, Blueprint
 from . import database
+from .models import accounts, account_columns_map
 
+# Create a Blueprint instance. The `template_folder` is set to find templates.
 bp = Blueprint('asset', __name__)
 
-def asset_insert(_form):
-    _account = accounts(account_name = _form.account_name.data, has_header = _form.has_header.data)
-    database.session.add(_account)
-    database.session.commit()
-    return
-
-def asset_edit(_form, _account):
-    _form.populate_obj(_account)
-    database.session.commit()
-    return
-
-def assetcolumnsmap_insert(form, _account):
-    _model = account_columns_map(
-        account = _account,
-        seq = form.seq.data,
-        src_column_name = form.src_column_name.data,
-        des_column_name = form.des_column_name.data,
-        is_drop = form.is_drop.data,
-        format = form.format.data,
-        custom = form.custom.data,
-        custom_formula = form.custom_formula.data,
-    )
-    database.session.add(_model)
-    database.session.commit()
-    return
-
-def assetcolumnsmap_edit(_form, _model):
-    _form.populate_obj(_model)
-    database.session.commit()
-    return
-
-@bp.route('/api/asset/assetsdata', methods=['GET','POST','PUT','DELETE'])
-def assetsdata():
-     match request.method: 
-        case 'GET':
-            _id = request.args.get('id', None)
-            if _id is None:
-                _accounts = accounts.query.all()
-                return {"data": [x.to_dict(show=['account_name','has_header']) for x in _accounts]}, 200
-            else:
-                _accounts = accounts.query.filter_by(id=_id).first()
-                return _accounts.to_dict(show=['account_name','has_header']), 200
-        case 'POST':
-            _account_name = request.form['account_name']
-            _has_header = request.form['has_header']
-            _form = AccountsForm(request.form)
-            if _form.validate():
-                asset_insert(_form)
-            else:
-                return jsonify(_form.errors), 400
-            
-            content = jsonify({'message':f'Insert record (account_name:"{_account_name}",has_header:{_has_header})'})
-        
-            return content, 201
-        case 'PUT':
-            _id = request.args.get('id','')
-            if _id == '':
-                return jsonify({'message':'Query parameter (ID) must be specified.'}), 400
-            
-            _account = accounts.query.get(_id)
-            if _account is None:
-                return jsonify({'message':f'Provided ID {_id} not exists.'}), 400
-            
-            _account_name = request.form['account_name']
-            _has_header = request.form['has_header']
-            _form = AccountsForm(request.form)
-            if _form.validate():
-                asset_edit(_form, _account)
-            else:
-                return jsonify(_form.errors), 400
-            content = {'message':f'Update record (account_name:"{_account_name}",has_header:{_has_header}, id: {_id})'}
-            return content, 201
-        case 'DELETE':
-            _id = request.args.get('id','')
-            if _id == '':
-                return {'message':'Form data (ID) must be specified.'}, 400
-            else:
-                pass
-            
-            _account = accounts.query.get(_id)
-            database.session.delete(_account)
-            database.session.commit()
-            content = {'message':f'Delete record (account_name:{_account.account_name},has_header:{_account.has_header}, id: {_id})'}
-            return content, 201
-
-# @bp.route('/api/asset/assetcolumnsmap', defaults={'account_id':None}, methods=['DELETE'])
-@bp.route('/api/asset/assetcolumnsmap/<string:account_id>', methods=['GET','POST','PUT', 'DELETE'])
-def assetcolumnsmap(account_id):
-    _account = accounts.query.get(account_id)
-    if _account is None:
-        return jsonify({'message':'Account ID is incorrect.'}), 400
-    
-    show = ['seq','src_column_name','des_column_name','is_drop','format','custom','custom_formula']
-    match request.method: 
-        case 'GET':
-            _id = request.args.get('id', None)
-            if _id is None:
-                _accountColsMap = account_columns_map.query.filter_by(account_id=account_id).all()
-                return {"data": [x.to_dict(show=show) for x in _accountColsMap]}, 200
-            else:
-                _accountColsMap = account_columns_map.query.filter_by(account_id=account_id, id=_id).first()
-                return _accountColsMap.to_dict(show=show), 200
-        case 'POST':
-            _src_column_name = request.form['src_column_name']
-            _des_column_name = request.form['des_column_name']
-            _is_drop = request.form['is_drop']
-            _format = request.form['format']
-            _custom = request.form['custom']
-            _custom_formula = request.form['custom_formula']
-
-            _form = AccountColumnsMapForm(request.form)
-            if _form.validate():
-                assetcolumnsmap_insert(_form, _account)
-            else:
-                return jsonify(_form.errors), 400
-            content = jsonify({'message':f'Insert record successfully.)'})
-            return content, 201
-        case 'PUT':
-            _id = request.args.get('id','')
-            if _id == '':
-                return {'message':'Query parameter (ID) must be specified.'}, 400
-            
-            _model = account_columns_map.query.filter_by(account_id=account_id, id=_id).first()
-            if _model is None:
-                return {'message':f'Provided ID {_id} not exists.'}, 400
-            
-            _src_column_name = request.form['src_column_name']
-            _des_column_name = request.form['des_column_name']
-            _is_drop = request.form['is_drop']
-            _format = request.form['format']
-            _custom = request.form['custom']
-            _custom_formula = request.form['custom_formula']
-
-            _form = AccountColumnsMapForm(request.form)
-
-            if _form.validate():
-                assetcolumnsmap_edit(_form, _model)
-            else:
-                return jsonify(_form.errors), 400
-            
-            content = jsonify({'message':f'Update record successfully.'})
-            return content, 201
-        case 'DELETE':
-            _id = request.args.get('id','')
-            if _id == '':
-                return {'message':'Form data (ID) must be specified.'}, 400
-            else:
-                pass
-            
-            _model = account_columns_map.query.filter_by(account_id=account_id, id=_id).first()
-            database.session.delete(_model)
-            database.session.commit()
-            content = {'message':f'Delete record seccessfully.'}
-            return content, 201
-
-@bp.route('/assetcolumnsmap_dialog/<account_id>/<id>', methods=['GET'])
-@bp.route('/assetcolumnsmap_dialog/<account_id>', methods=['GET','POST','PUT'], defaults={'id': None})
-def assetcolumnsmap_dialog(account_id, id):
-    if id is not None:
-        model = account_columns_map.query.filter_by(account_id=account_id, id=id).first()
-        formid = 'assetcolumnsmap_edit_dialog'
-        form = AccountColumnsMapForm(obj=model)
-    else:
-        formid = 'assetcolumnsmap_create_dialog'
-        form = AccountColumnsMapForm(account_id=account_id) 
-    if request.method == 'POST':
-        if form.validate():
-            assetcolumnsmap_insert(form)
-            return {'message':'Insert successful.'}, 201
-        return jsonify(form.errors), 400
-        
-    return render_template('asset/assetcolumnsmap_dialog.html', formid=formid, form=form), 200
-
-@bp.route('/asset_dialog/<id>', methods=['GET'])
-@bp.route('/asset_dialog', methods=['GET','POST','PUT'], defaults={'id': None})
-def asset_dialog(id):
-    if id is not None:
-        model = accounts.query.get(id)
-        formid = 'asset_edit_dialog'
-        form = AccountsForm(obj=model)
-    else:
-        formid = 'asset_create_dialog'
-        form = AccountsForm() 
-    if request.method == 'POST':
-        if form.validate():
-            asset_insert(form)
-            return {'message':'Insert successful.'}, 201
-        return jsonify(form.errors), 400
-        
-    return render_template('asset/asset_dialog.html', formid=formid, form=form), 200
-
-# @bp.route('/asset', defaults={'message':None})
-# @bp.route('/asset/<string:message>')
-@bp.route('/asset')
+@bp.route('/asset', methods=['GET'])
 def index():
-    message = None
-    if session.get('message') and session['message'] is not None:
-        message = session['message']
-        session['message'] = None
-    return render_template('asset/index.html', message=message)
+    """
+    Renders the main interactive table page.
+    Handles searching and pagination.
+    """
+    # Get current page number from URL, default to 1.
+    page = request.args.get('page', 1, type=int)
+    # Get search query from URL, default to empty string.
+    search_query = request.args.get('search', '', type=str)
+    # Get the ID of the last edited record for highlighting.
+    highlight_id = request.args.get('highlight_id', None, type=str)
 
-@bp.route('/asset/create', methods=('GET', 'POST'))
-def create():
-    form = AccountsForm()
-    if form.validate_on_submit():
-        url = url_for('asset.assetsdata', _external=True)
-        payload = {
-            'account_name': f"{form.account_name.data}",
-            'has_header': f"{form.has_header.data}",
-        }
-        resp = requests.post(url, data=payload)
-        resp_j = json.loads(resp.content)
-
-        session['message'] = resp_j['message']
-
-        return redirect(url_for('asset.index'))
+    per_page = request.args.get('per_page', 10, type=int)
     
-    return render_template('asset/create.html', form=form)
-
-@bp.route('/asset/<int:id>/update', methods=('GET', 'POST'))
-def update(id):
-    select_url = url_for('asset.assetsdata', _external=True)
-    resp = requests.get(select_url, params={'id':id})
-    resp_j = resp.json()
-    account = resp_j['data'][0]
-
-    if request.method == 'POST':
-        if 'has_header' in request.form:
-            _has_header = True
-        else:
-            _has_header = False
-        _account_name = request.form['account_name']
-
-        url = url_for('asset.assetsdata', _external=True)
-        payload = {
-            'account_name': f"'{_account_name}'",
-            'has_header': f'{_has_header}'
-        }
-        resp = requests.put(url, params={'id':id}, data=payload)
-        resp_j = json.loads(resp.content)
-
-        session['message'] = resp_j['message']
-
-        return redirect(url_for('asset.index'))
+    # Base query for all assets.
+    query = accounts.query
     
-    return render_template('asset/update.html', account=account)
+    # If a search query is present, filter the results.
+    if search_query:
+        query = query.filter(accounts.account_name.contains(search_query))
+    
+    # Paginate the results. `per_page=10` displays 10 records per page.
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    return render_template(
+        'asset/index.html',
+        pagination=pagination,
+        search_query=search_query,
+        highlight_id=highlight_id,
+        per_page=per_page
+    )
 
-@bp.route('/asset/assetsdata/delete', methods=['POST'])
-def assetsdata_delete():
-    _id = ''
-    if 'hidden_id' in request.form:
-        _id = request.form['hidden_id']
-        if _id == '':
-            message='Form data (ID) must be specified.'
-        else:
-            pass
-    else:
-        message='Form data (ID) must be specified.'
+@bp.route('/asset/create', methods=['POST'])
+def create_asset():
+    """
+    Handles the creation of a new asset.
+    """
+    account_name = request.form.get('account_name', '')
+    has_header = request.form.get('has_header') == 'on'
+    
+    new_asset = accounts(account_name=account_name, has_header=has_header)
+    database.session.add(new_asset)
+    database.session.commit()
+    
+    # Redirect to the main page and pass the new asset's ID for highlighting.
+    return redirect(url_for('asset.index', highlight_id=new_asset.id))
 
-    url = url_for('asset.assetsdata', _external=True)
-    payload = {
-        'id':_id
+@bp.route('/asset/<id>/update', methods=['POST'])
+def update_asset(id):
+    """
+    Handles the update of an existing asset.
+    """
+    asset = accounts.query.get_or_404(id)
+    asset.account_name = request.form.get('account_name', '')
+    asset.has_header = request.form.get('has_header') == 'on'
+    database.session.commit()
+    
+    # Redirect to the main page and pass the updated asset's ID for highlighting.
+    return redirect(url_for('asset.index', highlight_id=asset.id))
+
+@bp.route('/asset/<id>/delete', methods=['POST'])
+def delete_asset(id):
+    """
+    Handles the deletion of an asset.
+    """
+    asset = accounts.query.get_or_404(id)
+    database.session.delete(asset)
+    database.session.commit()
+    
+    # Redirect to the main page after deletion.
+    return redirect(url_for('asset.index'))
+
+@bp.route('/asset/<id>/details', methods=['GET'])
+def get_asset_details(id):
+    """
+    API endpoint to get an asset and its mappings for viewing.
+    """
+    asset = accounts.query.get_or_404(id)
+    mappings = [{
+        'id': m.id,
+        'seq': m.seq,
+        'src_column_name': m.src_column_name,
+        'des_column_name': m.des_column_name,
+        'is_drop': m.is_drop,
+        'format': m.format,
+        'custom': m.custom,
+        'custom_formula': m.custom_formula
+    } for m in asset.columns]
+
+    asset_details = {
+        'id': asset.id,
+        'account_name': asset.account_name,
+        'has_header': asset.has_header,
+        'mappings': mappings
     }
-    resp = requests.delete(url, params=payload)
-    resp_j = json.loads(resp.content)
-    message = resp_j['message']
+    return jsonify(asset_details)
 
-    session['message'] = message
+@bp.route('/asset/<int:asset_id>/mappings/create', methods=['POST'])
+def create_mapping(asset_id):
+    """
+    API endpoint to create a new column mapping for a specific asset.
+    """
+    data = request.json
+    new_mapping = account_columns_map(
+        account_id=asset_id,
+        seq=data.get('seq'),
+        src_column_name=data.get('src_column_name'),
+        des_column_name=data.get('des_column_name'),
+        is_drop=data.get('is_drop', False),
+        format=data.get('format'),
+        custom=data.get('custom', False),
+        custom_formula=data.get('custom_formula')
+    )
+    database.session.add(new_mapping)
+    database.session.commit()
+    return jsonify({'message': 'Mapping created successfully!'}), 201
 
-    return redirect(url_for('asset.index')) 
-
-@bp.route('/asset/assetcolumnsmap/<string:account_id>/create', methods=('GET', 'POST'))
-def assetcolumnsmap_create(account_id):     
-    form = AccountColumnsMapForm()
-    if form.validate_on_submit():
-        url = url_for('asset.assetcolumnsmap', account_id=account_id, _external=True)
-        payload = {
-            'src_column_name': f"{form.src_column_name.data}",
-            'des_column_name': f"{form.des_column_name.data}",
-            'is_drop': f"{form.is_drop.data}",
-            'format': f"{form.format.data}",
-            'custom': f"{form.custom.data}",
-            'custom_formula': f"{form.custom_formula.data}",
-        }
-        resp = requests.post(url, data=payload)
-        resp_j = json.loads(resp.content)
-
-        session['message'] = resp_j['message']
-
-        return redirect(url_for('asset.index'))
+@bp.route('/asset/<int:asset_id>/mappings/<int:mapping_id>/update', methods=['PUT'])
+def update_mapping(asset_id, mapping_id):
+    """
+    API endpoint to update an existing column mapping.
+    """
+    mapping = account_columns_map.query.filter_by(id=mapping_id, account_id=asset_id).first_or_404()
+    data = request.json
     
-    return render_template('asset/assetcolumnsmap_create.html', form=form)
+    mapping.seq = data.get('seq')
+    mapping.src_column_name = data.get('src_column_name')
+    mapping.des_column_name = data.get('des_column_name')
+    mapping.is_drop = data.get('is_drop', mapping.is_drop)
+    mapping.format = data.get('format')
+    mapping.custom = data.get('custom', mapping.custom)
+    mapping.custom_formula = data.get('custom_formula')
+    
+    database.session.commit()
+    return jsonify({'message': 'Mapping updated successfully!'})
 
-@bp.route('/asset/assetcolumnsmap/<string:account_id>/<string:id>/update', methods=('GET', 'POST'))
-def assetcolumnsmap_update(account_id,id):
-    url = url_for('asset.assetcolumnsmap', account_id=account_id, id=id, _external=True)
-    resp = requests.get(url, params={'id':id})
-    resp_j = resp.json()
-    form = AccountColumnsMapForm(data=resp_j['data'][0])
-
-    if form.validate_on_submit():
-        url = url_for('asset.assetcolumnsmap', account_id=account_id, id=id, _external=True)
-        payload = {
-            'src_column_name': f"{form.src_column_name.data}",
-            'des_column_name': f"{form.des_column_name.data}",
-            'is_drop': f"{form.is_drop.data}",
-            'format': f"{form.format.data}",
-            'custom': f"{form.custom.data}",
-            'custom_formula': f"{form.custom_formula.data}",
-        }
-        resp = requests.put(url, data=payload)
-        resp_j = json.loads(resp.content)
-
-        session['message'] = resp_j['message']
-
-        return redirect(url_for('asset.index'))
-    return render_template('asset/assetcolumnsmap_update.html', form=form)
+@bp.route('/asset/<int:asset_id>/mappings/<int:mapping_id>/delete', methods=['DELETE'])
+def delete_mapping(asset_id, mapping_id):
+    """
+    API endpoint to delete a column mapping.
+    """
+    mapping = account_columns_map.query.filter_by(id=mapping_id, account_id=asset_id).first_or_404()
+    database.session.delete(mapping)
+    database.session.commit()
+    return jsonify({'message': 'Mapping deleted successfully!'})
