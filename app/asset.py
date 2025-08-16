@@ -81,6 +81,18 @@ def delete_asset(id):
     # Redirect to the main page after deletion.
     return redirect(url_for('asset.index'))
 
+@bp.route('/assets/list', methods=['GET'])
+def get_assets():
+    """
+    API endpoint to get a list of all assets.
+    """
+    assets = accounts.query.all()
+    assets_data = [{
+        'id': a.id,
+        'name': a.account_name,
+    } for a in assets]
+    return jsonify(assets_data)
+
 @bp.route('/asset/<id>/details', methods=['GET'])
 def get_asset_details(id):
     """
@@ -154,3 +166,5 @@ def delete_mapping(asset_id, mapping_id):
     database.session.delete(mapping)
     database.session.commit()
     return jsonify({'message': 'Mapping deleted successfully!'})
+
+

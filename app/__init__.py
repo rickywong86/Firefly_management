@@ -40,6 +40,9 @@ def create_app(test_config=None):
     from . import db
     db.init_app(app)
 
+    from . import project
+    app.register_blueprint(project.project)
+
     from . import category
     app.register_blueprint(category.bp)
 
@@ -51,6 +54,7 @@ def create_app(test_config=None):
 
     from . import asset
     app.register_blueprint(asset.bp)
+    
 
     Bootstrap4(app)
 

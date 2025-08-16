@@ -82,3 +82,16 @@ def get_category_details(category_id):
         'category': category_record.category,
         'destinationAcc': category_record.destinationAcc
     })
+
+@bp.route('/categories/list', methods=['GET'])
+def get_categories():
+    """
+    API endpoint to get a list of all categories.
+    """
+    categories = Category.query.all()
+    categories_data = [{
+        'key': c.key,
+        'category': c.category,
+        'destinationAcc': c.destinationAcc
+    } for c in categories]
+    return jsonify(categories_data)

@@ -84,7 +84,8 @@ def modify_transaction(df, sourceAcc):
     
     df_column_def['format'].str.strip()
 
-    df_format = df_column_def.loc[df_column_def['format'] != '']
+    df_format = df_column_def.loc[df_column_def['format'] != ' ']
+    print(df_format)
     for index, row in df_format.iterrows():
         df[row['src_column_name']] = pd.to_datetime(df[row['src_column_name']], format=row['format'])
         df[row['src_column_name']] = df[row['src_column_name']].dt.strftime('%d/%m/%Y')
@@ -136,7 +137,7 @@ def scoring(_checkvalue, limit=5, ascending=False):
 
     return df_result
 
-@bp.route('/', methods=['GET','POST'])
+@bp.route('/home', methods=['GET','POST'])
 def index():
     session.clear()
     session['key'] = uuid.uuid4().hex[:6].upper()

@@ -5,6 +5,9 @@ from sqlalchemy import event, ForeignKey
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy_serializer import SerializerMixin
 import json
+from sqlalchemy.dialects.postgresql import UUID
+import uuid
+from datetime import datetime
 
 class BaseModel(database.Model, SerializerMixin):
     __abstract__ = True
@@ -127,10 +130,8 @@ class category(BaseModel):
     category = database.Column(database.String(100), default='')
     destinationAcc = database.Column(database.String(100), default='')   
 
-    # def __init__(self, key, category, destinationAcc):
-    #     self.key = key
-    #     self.category = category
-    #     self.destinationAcc = destinationAcc
+    def __repr__(self):
+        return f'<Category id={self.id}, key={self.key}>'
 
 class transactions(BaseModel):
     __tablename__ = '__transactions'
@@ -165,6 +166,9 @@ class accounts(BaseModel):
     has_header = database.Column(database.Boolean, default=False, info={'label':'Has header'})
     columns = database.relationship('account_columns_map', backref='account')
 
+    def __repr__(self):
+        return f'<Asset id={self.id}, name={self.account_name}>'
+
 class account_columns_map(BaseModel):
     __tablename__ = 'account_columns_map'
     id = database.Column(database.Integer, primary_key=True)
@@ -177,23 +181,51 @@ class account_columns_map(BaseModel):
     custom = database.Column(database.Boolean, default=False)
     custom_formula = database.Column(database.String(100), default='') 
 
-class User(BaseModel):
+class Project(BaseModel):
+    """
+    A table for managing projects.
+    """
+    id = database.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    description = database.Column(database.String(500), nullable=False)
+    created = database.Column(database.DateTime, nullable=False, default=datetime.utcnow)
+    completed = database.Column(database.Boolean, default=False)
+    transactions = database.relationship('Transaction', backref='project', lazy=True, cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f'<Project id={self.id}, description={self.description}>'
+
+class Transaction(BaseModel):
+    """
+    A table for managing transactions related to a project.
+    """
+    id = database.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    transdate = database.Column(database.DateTime, nullable=False)
+    desc = database.Column(database.String(250), nullable=False)
+    amount = database.Column(database.Numeric(10, 2), nullable=False)
+    category = database.Column(database.String(150), nullable=True)
+    sourceAcc = database.Column(database.String(150), database.ForeignKey('accounts.id'), nullable=True)
+    destinationAcc = database.Column(database.String(150), nullable=True)
+    score = database.Column(database.Numeric(10, 2), nullable=True)
+    project_id = database.Column(UUID(as_uuid=True), database.ForeignKey('project.id'), nullable=False)
+
+    source_asset = database.relationship('accounts', backref='transactions')
+
+    def __repr__(self):
+        return f'<Transaction id={self.id}, desc={self.desc}>'
+    
+class UserCorrection(BaseModel):
+    """
+    A table to store user-made corrections to transaction categories and destination accounts.
+    This data is used to improve the scoring logic for future imports.
+    """
     id = database.Column(database.Integer, primary_key=True)
-    name = database.Column(database.String(64), index=True)
-    age = database.Column(database.Integer, index=True)
-    address = database.Column(database.String(256))
-    phone = database.Column(database.String(20))
-    email = database.Column(database.String(120), index=True)
+    desc = database.Column(database.String(250), nullable=False)
+    category = database.Column(database.String(150), nullable=False)
+    destinationAcc = database.Column(database.String(150), nullable=False)
 
-    def to_dict(self):
-        return {
-            'name': self.name,
-            'age': self.age,
-            'address': self.address,
-            'phone': self.phone,
-            'email': self.email
-        }
-
+    def __repr__(self):
+        return f'<UserCorrection id={self.id}, desc={self.desc}>'
+    
 if __name__ == "__main__":
     # Run this file directly to create the database tables.
     print("Creating database tables...")
