@@ -164,7 +164,7 @@ class accounts(BaseModel):
     id = database.Column(database.Integer, primary_key=True)
     account_name = database.Column(database.String(100), default='', info={'label':'Account name'}) 
     has_header = database.Column(database.Boolean, default=False, info={'label':'Has header'})
-    columns = database.relationship('account_columns_map', backref='account')
+    columns = database.relationship('account_columns_map', backref='account',order_by='asc(account_columns_map.seq)')
 
     def __repr__(self):
         return f'<Asset id={self.id}, name={self.account_name}>'
@@ -174,12 +174,17 @@ class account_columns_map(BaseModel):
     id = database.Column(database.Integer, primary_key=True)
     account_id = database.Column(database.Integer, ForeignKey(accounts.id))
     seq = database.Column(database.Integer, default=0)
+    type = database.Column(database.String(100), nullable=False, default='')
+    column_name = database.Column(database.String(100), nullable=False, default='') 
     src_column_name = database.Column(database.String(100), default='') 
     des_column_name = database.Column(database.String(100), default='') 
     is_drop = database.Column(database.Boolean, default=False)
     format = database.Column(database.String(100), default='') 
     custom = database.Column(database.Boolean, default=False)
     custom_formula = database.Column(database.String(100), default='') 
+
+    def __repr__(self):
+        return f'<Asset id={self.id}, seq={self.seq}, type={self.type}, column_name={self.column_name}, is_drop={self.is_drop}, format={self.format}, custom={self.custom}, custom_formula={self.custom_formula}>'
 
 class Project(BaseModel):
     """
