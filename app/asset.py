@@ -1,10 +1,10 @@
 # project/routes.py
 # This file defines all the web routes for the application.
 
-from flask import render_template, request, redirect, url_for, jsonify, Blueprint
+from flask import render_template, request, redirect, url_for, jsonify, Blueprint, Response
 from . import database
 from .models import accounts, account_columns_map
-
+import io, csv
 # Create a Blueprint instance. The `template_folder` is set to find templates.
 bp = Blueprint('asset', __name__)
 
@@ -107,7 +107,9 @@ def get_asset_details(id):
         'is_drop': m.is_drop,
         'format': m.format,
         'custom': m.custom,
-        'custom_formula': m.custom_formula
+        'custom_formula': m.custom_formula,
+        'column_name':m.column_name,
+        'type':m.type
     } for m in asset.columns]
 
     asset_details = {
@@ -132,7 +134,9 @@ def create_mapping(asset_id):
         is_drop=data.get('is_drop', False),
         format=data.get('format'),
         custom=data.get('custom', False),
-        custom_formula=data.get('custom_formula')
+        custom_formula=data.get('custom_formula'),
+        column_name=data.get('column_name'),
+        type=data.get('type')
     )
     database.session.add(new_mapping)
     database.session.commit()
@@ -153,6 +157,8 @@ def update_mapping(asset_id, mapping_id):
     mapping.format = data.get('format')
     mapping.custom = data.get('custom', mapping.custom)
     mapping.custom_formula = data.get('custom_formula')
+    mapping.column_name = data.get('column_name')
+    mapping.type = data.get('type')
     
     database.session.commit()
     return jsonify({'message': 'Mapping updated successfully!'})
@@ -167,4 +173,93 @@ def delete_mapping(asset_id, mapping_id):
     database.session.commit()
     return jsonify({'message': 'Mapping deleted successfully!'})
 
+@bp.route('/assets/upload', methods=['POST'])
+def upload_assets():
+    """Handles CSV upload for accounts and their column maps."""
+    if 'file' not in request.files:
+        return jsonify({'message': 'No file part'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'message': 'No selected file'}), 400
 
+    try:
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        reader = csv.DictReader(stream)
+        
+        imported_accounts = 0
+        current_account = None
+
+        for row in reader:
+            # Check for a new account entry (assuming account_name is present on a new account row)
+            if row.get('account_name'):
+                account_name = row['account_name']
+                has_header = row.get('has_header', 'False').lower() == 'true'
+                
+                # Check for existing account
+                current_account = accounts.query.filter_by(account_name=account_name).first()
+                if not current_account:
+                    current_account = accounts(account_name=account_name, has_header=has_header)
+                    database.session.add(current_account)
+                    database.session.flush() # To get the account_id
+                    imported_accounts += 1
+            
+            # If we have an account, process the column map
+            if current_account:
+                new_column_map = account_columns_map(
+                    account_id=current_account.id,
+                    seq=int(row.get('seq', 0)),
+                    type=row.get('type', ''),
+                    column_name=row.get('column_name', ''),
+                    src_column_name=row.get('src_column_name', ''),
+                    des_column_name=row.get('des_column_name', ''),
+                    is_drop=row.get('is_drop', 'False').lower() == 'true',
+                    format=row.get('format', ''),
+                    custom=row.get('custom', 'False').lower() == 'true',
+                    custom_formula=row.get('custom_formula', '')
+                )
+                database.session.add(new_column_map)
+
+        database.session.commit()
+        return jsonify({'message': f'{imported_accounts} new accounts and their column maps imported successfully!'})
+    except Exception as e:
+        database.session.rollback()
+        return jsonify({'message': f'Error processing file: {str(e)}'}), 500
+
+@bp.route('/asset/export_csv', methods=['GET'])
+def export_assets():
+    """Exports all accounts and their column maps to a single CSV file."""
+    accounts_list = accounts.query.all()
+    si = io.StringIO()
+    cw = csv.writer(si)
+
+    # Headers for the combined CSV file
+    headers = [
+        'account_name', 'has_header', 'seq', 'type', 'column_name', 
+        'src_column_name', 'des_column_name', 'is_drop', 'format', 
+        'custom', 'custom_formula'
+    ]
+    cw.writerow(headers)
+
+    for account in accounts_list:
+        for column in account.columns:
+            row = [
+                account.account_name,
+                'True' if account.has_header else 'False',
+                column.seq,
+                column.type,
+                column.column_name,
+                column.src_column_name,
+                column.des_column_name,
+                'True' if column.is_drop else 'False',
+                column.format,
+                'True' if column.custom else 'False',
+                column.custom_formula
+            ]
+            cw.writerow(row)
+    
+    output = si.getvalue()
+    si.close()
+
+    response = Response(output, mimetype='text/csv')
+    response.headers['Content-Disposition'] = 'attachment; filename=accounts_export.csv'
+    return response

@@ -8,6 +8,7 @@
 {% block content %}
 
 <div class="container mt-5">
+    <a href="{{ url_for('project.index') }}" class="btn btn-outline-secondary mb-4">&larr; Back to Projects</a>
     <h1>{% block title %}Category{% endblock %}</h1>
     <div class="d-flex justify-content-between mb-3">
         <!-- Search Bar and Per Page Dropdown -->
@@ -30,6 +31,12 @@
                     <option value="30" {% if per_page==30 %}selected{% endif %}>30 per page</option>
                 </select>
             </form>
+
+            <a href="{{ url_for('category.export_categories') }}" class="btn btn-success me-2">Export Categories
+                (CSV)</a>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                Upload Categories (CSV)
+            </button>
         </div>
 
         <!-- Create Button to open the Category modal -->
@@ -227,6 +234,33 @@
     </div>
 </div>
 
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadModalLabel">Upload Categories CSV</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="fileUpload" class="form-label">Select CSV File</label>
+                        <input type="file" class="form-control" id="fileUpload" name="file" accept=".csv" required>
+                        <div class="form-text">
+                            The CSV should have columns: **key, category, destinationAcc**
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block custom_script %}
@@ -275,6 +309,28 @@
                 modal.find('#category').val(category);
                 modal.find('#destinationAcc').val(destinationAcc);
             }
+        });
+
+        // Handle file upload form submission
+        $('#uploadForm').on('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            $.ajax({
+                url: '/categories/upload',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (response) {
+                    alert(response.message);
+                    $('#uploadModal').modal('hide');
+                    fetchAndRenderCategories();
+                },
+                error: function (jqXHR) {
+                    alert('Error uploading file: ' + (jqXHR.responseJSON ? jqXHR.responseJSON.message : jqXHR.responseText));
+                }
+            });
         });
 
         // Category Delete Confirmation Modal Logic

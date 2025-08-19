@@ -11,6 +11,7 @@
 {% endblock %}
 {% block content %}
 <div class="container mt-5">
+    <a href="{{ url_for('project.index') }}" class="btn btn-outline-secondary mb-4">&larr; Back to Projects</a>
     <h1>{% block title %}Asset{% endblock %}</h1>
     <div class="d-flex justify-content-between mb-3">
         <!-- Search Bar and Per Page Dropdown -->
@@ -33,6 +34,11 @@
                     <option value="30" {% if per_page==30 %}selected{% endif %}>30 per page</option>
                 </select>
             </form>
+
+            <a href="{{ url_for('asset.export_assets') }}" class="btn btn-success me-2">Export Assets (CSV)</a>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                Upload Assets (CSV)
+            </button>
         </div>
 
         <!-- Create Button to open the Asset modal -->
@@ -229,6 +235,8 @@
                                 <th>Format</th>
                                 <th>Custom</th>
                                 <th>Custom Formula</th>
+                                <th>Column</th>
+                                <th>Type</th>
                             </tr>
                         </thead>
                         <tbody id="viewMappingsTableBody">
@@ -260,6 +268,20 @@
                     <div class="col-md-1">
                         <label for="mappingSeq" class="form-label">Seq</label>
                         <input type="number" class="form-control" id="mappingSeq" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="mappingType" class="form-label">Type</label>
+                        <input class="form-control" list="typeOptions" id="editType" placeholder="Type to search">
+                        <datalist id="typeOptions">
+                            <option value="String"></option>
+                            <option value="Number"></option>
+                            <option value="Date"></option>
+                            <option value="Custom"></option>
+                        </datalist>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="mappingCol" class="form-label">Column</label>
+                        <input type="text" class="form-control" id="mappingCol" required>
                     </div>
                     <div class="col-md-2">
                         <label for="mappingSrcCol" class="form-label">Source Column</label>
@@ -300,6 +322,8 @@
                         <thead class="table-dark">
                             <tr>
                                 <th>Seq</th>
+                                <th>Type</th>
+                                <th>Column</th>
                                 <th>Source Column</th>
                                 <th>Destination Column</th>
                                 <th>Is Drop</th>
@@ -318,6 +342,34 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadModalLabel">Upload Accounts CSV</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="fileUpload" class="form-label">Select CSV File</label>
+                        <input type="file" class="form-control" id="fileUpload" name="file" accept=".csv" required>
+                        <div class="form-text">
+                            The CSV should have columns: `account_name`, `has_header`, `seq`, `type`, `column_name`,
+                            `src_column_name`, `des_column_name`, `is_drop`, `format`, `custom`, `custom_formula`.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -369,6 +421,27 @@
             }
         });
 
+        $('#uploadForm').on('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            $.ajax({
+                url: '/assets/upload',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (response) {
+                    alert(response.message);
+                    $('#uploadModal').modal('hide');
+                    fetchAndRenderAccounts();
+                },
+                error: function (jqXHR) {
+                    alert('Error uploading file: ' + (jqXHR.responseJSON ? jqXHR.responseJSON.message : jqXHR.responseText));
+                }
+            });
+        });
+
         // Asset Delete Confirmation Modal Logic
         $('#deleteConfirmModal').on('show.bs.modal', function (event) {
             const button = $(event.relatedTarget);
@@ -398,12 +471,14 @@
                         const row = `
                             <tr>
                                 <td>${mapping.seq}</td>
+                                <td>${mapping.type}</td>
+                                <td>${mapping.column_name}</td>
                                 <td>${mapping.src_column_name}</td>
                                 <td>${mapping.des_column_name}</td>
                                 <td>${mapping.is_drop ? 'Yes' : 'No'}</td>
                                 <td>${mapping.format}</td>
                                 <td>${mapping.custom ? 'Yes' : 'No'}</td>
-                                <td>${mapping.custom_formula}</td>
+                                <td>${mapping.custom_formula}</td>    
                             </tr>
                         `;
                         tableBody.append(row);
@@ -424,6 +499,8 @@
                         const row = `
                             <tr>
                                 <td>${mapping.seq}</td>
+                                <td>${mapping.type}</td>
+                                <td>${mapping.column_name}</td>
                                 <td>${mapping.src_column_name}</td>
                                 <td>${mapping.des_column_name}</td>
                                 <td>${mapping.is_drop ? 'Yes' : 'No'}</td>
@@ -431,7 +508,7 @@
                                 <td>${mapping.custom ? 'Yes' : 'No'}</td>
                                 <td>${mapping.custom_formula}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-warning edit-mapping-btn" data-id="${mapping.id}" data-seq="${mapping.seq}" data-src="${mapping.src_column_name}" data-des="${mapping.des_column_name}" data-isdrop="${mapping.is_drop}" data-format="${mapping.format}" data-custom="${mapping.custom}" data-formula="${mapping.custom_formula}">Edit</button>
+                                    <button class="btn btn-sm btn-warning edit-mapping-btn" data-id="${mapping.id}" data-seq="${mapping.seq}" data-src="${mapping.src_column_name}" data-des="${mapping.des_column_name}" data-isdrop="${mapping.is_drop}" data-format="${mapping.format}" data-custom="${mapping.custom}" data-formula="${mapping.custom_formula}" data-column_name="${mapping.column_name}" data-type="${mapping.type}">Edit</button>
                                     <button class="btn btn-sm btn-danger delete-mapping-btn" data-id="${mapping.id}">Delete</button>
                                 </td>
                             </tr>
@@ -475,6 +552,8 @@
             $('#mappingFormat').val(button.data('format'));
             $('#mappingCustom').prop('checked', button.data('custom'));
             $('#mappingCustomFormula').val(button.data('formula'));
+            $('#mappingCol').val(button.data('column_name'));
+            $('#editType').val(button.data('type'));
 
             // Change the form state to 'edit'
             const mappingId = button.data('id');
@@ -531,7 +610,9 @@
                 is_drop: $('#mappingIsDrop').is(':checked'),
                 format: $('#mappingFormat').val(),
                 custom: $('#mappingCustom').is(':checked'),
-                custom_formula: $('#mappingCustomFormula').val()
+                custom_formula: $('#mappingCustomFormula').val(),
+                column_name: $('#mappingCol').val(),
+                type: $('#editType').val()
             };
 
             $.ajax({
