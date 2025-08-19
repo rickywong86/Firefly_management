@@ -6,6 +6,7 @@ import random
 import csv
 import io
 from sentence_transformers import SentenceTransformer, util
+import pandas as pd
 
 project = Blueprint('project', __name__)
 
@@ -187,6 +188,26 @@ def get_project_transactions(project_id):
         'transactions': transactions_data
     })
 
+def modify_transaction(row, asset):
+    result = []
+    val_dict = {}
+    idx = 0
+
+    # Format the columns
+    for column in asset.columns:
+        val = row[idx]
+        if column.is_drop != True and column.custom == False:
+            if column.type == 'Date':
+                date_format = '%d/%m/%Y'
+                if column.format != ' ':
+                    date_format = column.format
+                val = datetime.strptime(val, date_format)
+            val_dict[column.column_name] = {'value': val}
+        idx+=1
+
+    result = [val_dict['transdate']['value'], val_dict['desc']['value'], val_dict['amount']['value']]
+    return result
+
 @project.route('/project/<uuid:project_id>/upload', methods=['POST'])
 def upload_transactions(project_id):
     """
@@ -203,6 +224,9 @@ def upload_transactions(project_id):
         return jsonify({'message': 'No selected file'}), 400
 
     source_asset_name = request.form.get('source_asset')
+
+    # Get asset information
+    asset = Asset.query.filter_by(account_name=source_asset_name).first()
     
     # Load categories and user corrections for scoring
     categories = Category.query.all()
@@ -221,14 +245,23 @@ def upload_transactions(project_id):
         
     if file:
         stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
-        csv_reader = csv.reader(stream)
-        next(csv_reader) # Skip header row
+        csv_reader = csv.reader(line for line in stream if line.strip())
+        if asset.has_header:
+            next(csv_reader) # Skip header row
         
         try:
             for row in csv_reader:
+                if len(row) == 0:
+                    continue # skip empty lines
+                
+                # validate if number of column is match
+                if len(row) != len(asset.columns):
+                    raise Exception("column mismatch.")
+                
                 # The CSV format is now: transdate,desc,amount,destinationAcc,score
                 # The category and sourceAcc will be populated by the app
-                transdate, desc, amount = row
+                # transdate, desc, amount = row
+                transdate, desc, amount = modify_transaction(row,asset)
 
                 # Find the best matching category using semantic scoring
                 desc_embedding = sbert_model.encode(desc, convert_to_tensor=True)
@@ -255,7 +288,7 @@ def upload_transactions(project_id):
 
                 new_transaction = Transaction(
                     project_id=project_id,
-                    transdate=datetime.strptime(transdate, '%Y-%m-%d'),
+                    transdate=datetime.strptime(transdate.strftime('%Y-%m-%d'), '%Y-%m-%d'),
                     desc=desc,
                     amount=amount,
                     category=predicted_category,
