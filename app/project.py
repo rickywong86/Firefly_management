@@ -4,7 +4,7 @@ from .models import Project, Transaction, category as Category, accounts as Asse
 from datetime import datetime
 import random
 import csv
-import io
+import io, sys, traceback
 from sentence_transformers import SentenceTransformer, util
 import pandas as pd
 
@@ -45,7 +45,7 @@ def create_project():
     flash('Project created successfully!', 'success')
     return redirect(url_for('project.index', highlight_id=new_project.id))
 
-@project.route('/project/<int:project_id>/update', methods=['POST'])
+@project.route('/project/<uuid:project_id>/update', methods=['POST'])
 def update_project(project_id):
     """Updates an existing project."""
     project_to_update = Project.query.get_or_404(project_id)
@@ -55,7 +55,7 @@ def update_project(project_id):
     flash('Project updated successfully!', 'success')
     return redirect(url_for('project.index', highlight_id=project_to_update.id))
 
-@project.route('/project/<int:project_id>/delete', methods=['POST'])
+@project.route('/project/<uuid:project_id>/delete', methods=['POST'])
 def delete_project(project_id):
     """Deletes a project by its ID."""
     project_to_delete = Project.query.get_or_404(project_id)
@@ -212,10 +212,13 @@ def get_project_transactions(project_id):
 def modify_transaction(row, asset):
     result = []
     val_dict = {}
+    arr_custom = []
     idx = 0
 
     # Format the columns
-    for column in asset.columns:
+    # Non-custom columns
+    non_custom_columns = [t for t in asset.columns if t.custom != True]
+    for column in non_custom_columns:
         val = row[idx]
         if column.is_drop != True and column.custom == False:
             if column.type == 'Date':
@@ -224,8 +227,25 @@ def modify_transaction(row, asset):
                     date_format = column.format
                 val = datetime.strptime(val, date_format)
             val_dict[column.column_name] = {'value': val}
+        if column.column_name.startswith('custom_'):
+            if column.type == 'Number':
+                if val == "":
+                    val = float(val.replace("", "0"))
+                else:
+                    val = float(val.replace(",", ""))
+            val_custom = {'column_name': column.column_name, 'value': val}
+            arr_custom.append(val_custom)
         idx+=1
 
+    # Custom columns
+    custom_columns = [t for t in asset.columns if t.custom == True]
+    for column in custom_columns:
+        if column.custom == True:
+            formula = column.custom_formula
+            for val_custom in arr_custom:
+                formula = formula.replace(val_custom['column_name'], f"{val_custom['value']}")
+            val_dict[column.column_name] = {'value': eval(formula)}
+            
     result = [val_dict['transdate']['value'], val_dict['desc']['value'], val_dict['amount']['value']]
     return result
 
@@ -276,7 +296,8 @@ def upload_transactions(project_id):
                     continue # skip empty lines
                 
                 # validate if number of column is match
-                if len(row) != len(asset.columns):
+                val_columns = [t for t in asset.columns if t.custom != True]
+                if len(row) != len(val_columns):
                     raise Exception("column mismatch.")
                 
                 # The CSV format is now: transdate,desc,amount,destinationAcc,score
@@ -322,6 +343,7 @@ def upload_transactions(project_id):
             return jsonify({'message': 'Transactions imported successfully!'}), 201
         except Exception as e:
             db.session.rollback()
+            traceback.print_exc()
             return jsonify({'message': f'Error importing data: {e}'}), 500
 
 @project.route('/project/<uuid:project_id>/export_csv', methods=['GET'])
