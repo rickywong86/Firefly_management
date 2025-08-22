@@ -46,6 +46,9 @@
                     <option value="30">30</option>
                 </select>
             </div>
+            <button class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#summaryModal" id="summaryBtn">
+                View Upload Summary
+            </button>
             <a href="{{ url_for('project.export_csv', project_id=project.id) }}"
                 class="btn btn-sm btn-success me-2">Export CSV</a>
             <form id="uploadForm" class="d-flex me-2" enctype="multipart/form-data">
@@ -193,6 +196,58 @@
         </div>
     </div>
 </div>
+
+<!-- Summary Modal -->
+<div class="modal fade" id="summaryModal" tabindex="-1" aria-labelledby="summaryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="summaryModalLabel">Upload Summary</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="filter-date-range" class="form-label">Filter by Date:</label>
+                    <select class="form-select" id="filter-date-range">
+                        <option value="all">All</option>
+                        <option value="last_7_days">Last 7 Days</option>
+                        <option value="current_month">Current Month</option>
+                        <option value="last_month">Last Month</option>
+                        <option value="custom">Custom Date Range</option>
+                    </select>
+                </div>
+                <div id="custom-date-fields" class="row mb-3" style="display: none;">
+                    <div class="col">
+                        <label for="start-date" class="form-label">Start Date:</label>
+                        <input type="date" class="form-control" id="start-date">
+                    </div>
+                    <div class="col">
+                        <label for="end-date" class="form-label">End Date:</label>
+                        <input type="date" class="form-control" id="end-date">
+                    </div>
+                </div>
+                <h6 class="mt-4">Transactions Breakdown by Asset</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Asset Name</th>
+                                <th>Total Transactions</th>
+                                <th>Total Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryTableBody">
+                            <!-- Summary data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block custom_script %}
@@ -200,6 +255,7 @@
     $(document).ready(function () {
         // Get the project ID from the hidden input field
         const projectId = $('#viewProjectId').text().trim();
+        let allTransactions = []; // Store all transactions for filtering
 
         const urlParams = new URLSearchParams(window.location.search);
         const initialHighlightId = urlParams.get('highlight_id');
@@ -217,6 +273,7 @@
 
             $.get(`/project/${id}/transactions?page=${page}&per_page=${per_page}`, function (data) {
                 tableBodyElement.empty();
+
                 if (data.transactions.length > 0) {
                     data.transactions.forEach(transaction => {
                         const highlightClass = (highlightId && transaction.id.toString() === highlightId.toString()) ? 'highlight' : '';
@@ -490,6 +547,28 @@
             $('#deleteTransProjectId').val(projectId);
         });
 
+        $(document).on('blur', 'td[contenteditable="true"]', function() {
+            const field = $(this).data('field');
+            const value = $(this).text();
+            const id = $(this).closest('tr').data('id');
+
+            const updateData = {};
+            updateData[field] = value;
+
+            $.ajax({
+                url: `/transaction/${id}/update`,
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(updateData),
+                success: function(response) {
+                    console.log(response.message);
+                },
+                error: function(jqXHR) {
+                    alert('Error updating transaction: ' + (jqXHR.responseJSON ? jqXHR.responseJSON.message : jqXHR.responseText));
+                }
+            });
+        });
+
         // Delete Transaction Confirmation Button handler
         $('#deleteTransactionConfirmBtn').on('click', function () {
             const transactionId = $('#deleteTransId').val();
@@ -506,6 +585,105 @@
                     alert('Error deleting transaction: ' + (jqXHR.responseJSON ? jqXHR.responseJSON.message : errorThrown));
                 }
             });
+        });
+
+        // Summary Modal Logic
+        const renderSummary = (filteredTransactions) => {
+            const summaryTableBody = $('#summaryTableBody');
+            summaryTableBody.empty();
+            
+            const assetBreakdown = {};
+            filteredTransactions.forEach(t => {
+                const assetName = t.asset_name || 'Uncategorized';
+                if (!assetBreakdown[assetName]) {
+                    assetBreakdown[assetName] = {
+                        count: 0,
+                        total_amount: 0
+                    };
+                }
+                assetBreakdown[assetName].count++;
+                assetBreakdown[assetName].total_amount += t.amount;
+            });
+
+            for (const asset in assetBreakdown) {
+                const row = `
+                    <tr>
+                        <td>${asset}</td>
+                        <td>${assetBreakdown[asset].count}</td>
+                        <td>${assetBreakdown[asset].total_amount.toFixed(2)}</td>
+                    </tr>
+                `;
+                summaryTableBody.append(row);
+            }
+        };
+        
+        const fetchSummaryData = () => {
+            $('#summary-loading').show();
+            $.get(`/project/${projectId}/transactions/all`, function(data) {
+                allTransactions = data;
+                renderSummary(allTransactions);
+            }).fail(function() {
+                alert('Error loading summary data.');
+            }).always(function() {
+                $('#summary-loading').hide();
+            });
+        };
+
+        const filterTransactionsByDate = () => {
+            const range = $('#filter-date-range').val();
+            let startDate, endDate;
+            const now = new Date();
+            
+            if (range === 'all') {
+                // No filtering needed
+                renderSummary(allTransactions);
+                return;
+            }
+
+            if (range === 'last_7_days') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+                endDate = now;
+            } else if (range === 'current_month') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                endDate = now;
+            } else if (range === 'last_month') {
+                const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                startDate = lastMonth;
+                endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+            } else if (range === 'custom') {
+                const customStart = $('#start-date').val();
+                const customEnd = $('#end-date').val();
+                if (!customStart || !customEnd) {
+                    alert('Please select both start and end dates for a custom range.');
+                    return;
+                }
+                startDate = new Date(customStart);
+                endDate = new Date(customEnd);
+            }
+            
+            const filtered = allTransactions.filter(t => {
+                const transDate = new Date(t.transdate);
+                return transDate >= startDate && transDate <= endDate;
+            });
+            
+            renderSummary(filtered);
+        };
+
+        $('#filter-date-range').on('change', function() {
+            if ($(this).val() === 'custom') {
+                $('#custom-date-fields').show();
+            } else {
+                $('#custom-date-fields').hide();
+                filterTransactionsByDate();
+            }
+        });
+
+        $('#start-date, #end-date').on('change', function() {
+            filterTransactionsByDate();
+        });
+
+        $('#summaryModal').on('show.bs.modal', function() {
+            fetchSummaryData();
         });
     });
 </script>

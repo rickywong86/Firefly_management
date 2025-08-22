@@ -83,7 +83,7 @@ def get_transactions(project_id):
                 'id': t.id,
                 'transdate': t.transdate.isoformat(),
                 'desc': t.desc,
-                'amount': t.amount,
+                'amount': float(t.amount),
                 'category': t.category,
                 'sourceAcc': t.sourceAcc,
                 'destinationAcc': t.destinationAcc,
@@ -110,6 +110,27 @@ def get_transactions(project_id):
         'pages': pagination.pages,
         'per_page': pagination.per_page
     })
+
+@project.route('/project/<uuid:project_id>/transactions/all')
+def get_all_transactions(project_id):
+    """API endpoint to get all transactions for a project, without pagination, including asset name."""
+    transactions = db.session.query(Transaction).filter(Transaction.project_id == project_id).all()
+    
+    transactions_list = []
+    for t in transactions:
+        transactions_list.append({
+            'id': t.id,
+            'transdate': t.transdate.isoformat(),
+            'desc': t.desc,
+            'amount': float(t.amount),
+            'category': t.category,
+            'sourceAcc': t.sourceAcc,
+            'destinationAcc': t.destinationAcc,
+            'score': t.score,
+            'asset_name': t.sourceAcc
+        })
+    
+    return jsonify(transactions_list)
 
 def _rescore_transactions(transactions):
     """
