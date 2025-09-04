@@ -4,6 +4,22 @@ from flask import Flask
 from flask_bootstrap import Bootstrap4
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Get database credentials from environment variables
+user = os.getenv('MYSQL_USER')
+password = os.getenv('MYSQL_PASSWORD')
+host = os.getenv('MYSQL_HOST')
+port = os.getenv('MYSQL_PORT')
+db = os.getenv('MYSQL_DB')
+
+# Construct the database URI
+# The format is 'mysql+pymysql://user:password@host:port/db'
+# Using f-string for easy formatting
+DATABASE_URI = f'mysql+pymysql://{user}:{password}@{host}:{port}/{db}'
 
 database = SQLAlchemy()
 migrate = Migrate()
@@ -17,7 +33,7 @@ def create_app(test_config=None):
         UPLOAD_FOLDER = app.instance_path,
         ALLOWED_EXTENSIONS = {'txt','csv'},
         TEMPLATE_AUTO_RELOAD = True,
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(app.instance_path, 'db.sqlite'),
+        SQLALCHEMY_DATABASE_URI = DATABASE_URI, #'sqlite:///' + os.path.join(app.instance_path, 'db.sqlite'),
         SQLALCHEMY_TRACK_MODIFICATIONS = False,
     )
 
@@ -37,8 +53,8 @@ def create_app(test_config=None):
     except OSError:
         pass
     
-    from . import db
-    db.init_app(app)
+    # from . import db
+    # db.init_app(app)
 
     from . import project
     app.register_blueprint(project.project)
